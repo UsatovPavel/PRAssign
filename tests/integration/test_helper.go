@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
 )
 
 var baseURL = getBaseURL()
@@ -83,6 +82,6 @@ func unique(prefix string) string {
 	return prefix + "-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 }
 
-func nilTesting(b *testing.B) *testing.T {
+func nilTesting(_ *testing.B) *testing.T {
 	return &testing.T{}
 }

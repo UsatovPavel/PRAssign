@@ -19,7 +19,11 @@ func (r *TeamPostgres) CreateOrUpdate(ctx context.Context, t models.Team) error 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
 
 	_, err = tx.Exec(ctx, `INSERT INTO teams (team_name) VALUES ($1) ON CONFLICT DO NOTHING`, t.TeamName)
 	if err != nil {
@@ -45,24 +49,26 @@ func (r *TeamPostgres) CreateOrUpdate(ctx context.Context, t models.Team) error 
 }
 
 func (r *TeamPostgres) GetByName(ctx context.Context, name string) (*models.Team, error) {
-	var tmp string
-	err := r.db.Pool.QueryRow(ctx, `SELECT team_name FROM teams WHERE team_name=$1`, name).Scan(&tmp)
-	if err != nil {
-		return nil, models.NewAppError(models.NotFound, "team not found")
-	}
-	rows, err := r.db.Pool.Query(ctx, `SELECT user_id, username, is_active FROM users WHERE team_name = $1`, name)
+	rows, err := r.db.Pool.Query(ctx,
+		`SELECT user_id, username, is_active FROM users WHERE team_name = $1`,
+		name)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	var members []models.TeamMember
+
 	for rows.Next() {
 		var m models.TeamMember
 		if err := rows.Scan(&m.UserID, &m.Username, &m.IsActive); err != nil {
 			return nil, err
 		}
 		members = append(members, m)
+	}
+
+	if len(members) == 0 {
+		return nil, models.NewAppError(models.NotFound, "team not found")
 	}
 
 	return &models.Team{TeamName: name, Members: members}, nil

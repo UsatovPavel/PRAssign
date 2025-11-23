@@ -14,8 +14,13 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 RUN --mount=type=ssh  go mod download
-
 COPY . .
+
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+    | sh -s -- -b /usr/local/bin v1.60.1
+RUN golangci-lint run ./...
+
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /healthcheck ./cmd/healthcheck
 
 # Stage 3 — runtime
