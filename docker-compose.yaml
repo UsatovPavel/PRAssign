@@ -57,7 +57,7 @@ services:
     working_dir: /tests
     volumes:
       - ./loadtests:/tests
-    entrypoint: ["/bin/sh", "-c", "/tests/run-all.sh"]
+    entrypoint: ["/bin/sh", "-c", "/tests/run-all.sh 2>/dev/null"]
     depends_on:
       - migrate
     network_mode: host

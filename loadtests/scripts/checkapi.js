@@ -7,7 +7,8 @@ export const options = {
 };
 
 export default function () {
-  const r1 = http.get("http.get(`${BASE_URL}/team/get`)");
+    const BASE_URL = "http://app:8080";
+    const r1 = http.get(`${BASE_URL}/team/get`);
   check(r1, { t: (res) => res.status === 200 });
 
   const r2 = http.get("http://localhost:8080/users/getReview?user_id=u1");

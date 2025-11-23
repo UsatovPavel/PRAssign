@@ -7,6 +7,7 @@ import (
 	"github.com/UsatovPavel/PRAssign/internal/api/team"
 	"github.com/UsatovPavel/PRAssign/internal/api/users"
 	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/middleware"
 )
 
 type Handlers struct {
@@ -17,7 +18,7 @@ type Handlers struct {
 
 func InitRouter(h *Handlers) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(middleware.SkipK6Logger(), gin.Recovery())
 
 	r.GET("/health", health.HealthCheck)
 

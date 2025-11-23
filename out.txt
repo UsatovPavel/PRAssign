@@ -1,7 +1,17 @@
 import http from "k6/http";
-import { check } from "k6";
-import prRequests from "../data/pr-requests.json";
-import teams from "../data/teams.json";
+import { sleep } from "k6";
+
+export const options = {
+  vus: 5,
+  duration: "10s"
+};
+
+export default function () {
+  http.get("http://localhost:8080/health");
+  sleep(1);
+}
+import http from "k6/http";
+import { check, sleep } from "k6";
 
 export const options = {
   vus: 1,
@@ -9,8 +19,41 @@ export const options = {
 };
 
 export default function () {
+  const r1 = http.get("http.get(`${BASE_URL}/team/get`)");
+  check(r1, { t: (res) => res.status === 200 });
+
+  const r2 = http.get("http://localhost:8080/users/getReview?user_id=u1");
+  check(r2, { u: (res) => res.status === 200 });
+
+  sleep(1);
+}
+import http from "k6/http";
+import { check, sleep } from "k6";
+
+export const options = {
+  vus: 5,
+  duration: "10m"
+};
+
+export default function () {
+  const r = http.get("http://localhost:8080/users/getReview?user_id=u2");
+  check(r, { ok: (res) => res.status === 200 });
+  sleep(1);
+}
+import http from "k6/http";
+import { check } from "k6";
+
+export const options = {
+  vus: 1,
+  iterations: 1
+};
+
+import teams from "../data/teams.js";
+import prRequests from "../data/pr-requests.js";
+
+export default function () {
   teams.forEach(t => {
-    const r = http.post("http://localhost:8080/team/create", JSON.stringify(t), {
+    const r = http.post("http://localhost:8080/team/add", JSON.stringify(t), {
       headers: { "Content-Type": "application/json" }
     });
     check(r, { ok: (res) => res.status === 200 });
@@ -23,25 +66,54 @@ export default function () {
     check(r, { ok: (res) => res.status === 200 || res.status === 409 });
   });
 }
-[
-  {
-    "team_name": "backend",
-    "members": [
-      { "user_id": "u1", "username": "Alice", "is_active": true },
-      { "user_id": "u2", "username": "Bob", "is_active": false },
-      { "user_id": "u3", "username": "Carol", "is_active": true }
-    ]
-  }
-]
-[
-  {
-    "pull_request_id": "pr-1",
-    "pull_request_name": "Fix login",
-    "author_id": "u1"
+import http from "k6/http";
+import { check } from "k6";
+
+export const options = {
+  vus: 100,
+  duration: "10s"
+};
+
+export default function () {
+  const r = http.get("http://localhost:8080/pullRequest/list");
+  check(r, { ok: (res) => res.status === 200 });
+}
+import http from "k6/http";
+import { check } from "k6";
+
+export const options = {
+  stages: [
+    { duration: "20s", target: 10 },
+    { duration: "20s", target: 30 },
+    { duration: "20s", target: 60 },
+    { duration: "20s", target: 0 }
+  ]
+};
+
+export default function () {
+  const r = http.get("http://localhost:8080/users/getReview?user_id=u1");
+  check(r, { ok: (res) => res.status === 200 });
+}
+import http from "k6/http";
+import { sleep } from "k6";
+
+export const options = {
+  vus: 1,
+  iterations: 1,
+  thresholds: {
+    'http_req_failed': ['rate<1'], // чтобы k6 не считался провальным, мы сами бросим ошибку при таймауте
   },
-  {
-    "pull_request_id": "pr-2",
-    "pull_request_name": "Refactor cache",
-    "author_id": "u3"
+};
+
+export default function () {
+  const maxAttempts = 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    let res = http.get("http://localhost:8080/health");
+    if (res.status === 200) {
+      return;
+    }
+    sleep(1);
   }
-]
+  // если не поднялся за timeout — завершить с ошибкой
+  throw new Error("app /health did not become healthy within timeout");
+}
