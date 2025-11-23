@@ -1,16 +1,38 @@
 package main
 
 import (
-    "net/http"
-	"github.com/go-chi/chi/v5" 
+	"log"
+
+	"github.com/gin-gonic/gin"
+    "github.com/UsatovPavel/PRAssign/internal/api"
+    "github.com/UsatovPavel/PRAssign/internal/storage"
+    "github.com/UsatovPavel/PRAssign/internal/repository"
+    "github.com/UsatovPavel/PRAssign/internal/service"
 )
-//чтобы go.sum не пустой->docker не падал
+
 func main() {
-    r := chi.NewRouter()
+	db, err := storage.NewPostgres()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-        w.Write([]byte("ok"))
-    })
+	userRepo := repository.NewUserRepository(db)
+	teamRepo := repository.NewTeamRepository(db)
+	prRepo := repository.NewPullRequestRepository(db)
 
-    http.ListenAndServe(":8080", r)
+	userService := service.NewUserService(userRepo)
+	teamService := service.NewTeamService(teamRepo)
+	prService := service.NewPRService(prRepo, teamRepo, userRepo)
+
+	r := gin.Default()
+
+	api.RegisterUserRoutes(r, userService)
+	api.RegisterTeamRoutes(r, teamService)
+	api.RegisterPullRequestRoutes(r, prService)
+
+	r.GET("/health", func(c *gin.Context) {
+		c.String(200, "ok")
+	})
+
+	r.Run(":8080")
 }
