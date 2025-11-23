@@ -40,7 +40,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	response.WriteOK(c, gin.H{"pr": pr})
+	c.JSON(http.StatusCreated, gin.H{"pr": pr})
 }
 
 type MergePRRequest struct {
@@ -65,7 +65,7 @@ func (h *Handler) Merge(c *gin.Context) {
 		return
 	}
 
-	response.WriteOK(c, gin.H{"pr": pr})
+	c.JSON(http.StatusOK, gin.H{"pr": pr})
 }
 
 func (h *Handler) Reassign(c *gin.Context) {
@@ -86,7 +86,7 @@ func (h *Handler) Reassign(c *gin.Context) {
 		return
 	}
 
-	response.WriteOK(c, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"pr":          pr,
 		"replaced_by": newUser,
 	})

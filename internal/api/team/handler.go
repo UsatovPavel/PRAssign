@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/UsatovPavel/PRAssign/internal/models"
+	"github.com/UsatovPavel/PRAssign/internal/response"
 	"github.com/UsatovPavel/PRAssign/internal/service"
 )
 
@@ -20,6 +21,12 @@ func (h *Handler) Add(c *gin.Context) {
 	var req AddTeamRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if _, err := h.Service.GetTeam(c, req.TeamName); err == nil {
+		appErr := models.NewAppError(models.TeamExists, "team_name already exists")
+		response.WriteAppError(c, appErr)
 		return
 	}
 
@@ -39,7 +46,7 @@ func (h *Handler) Add(c *gin.Context) {
 
 	err := h.Service.CreateOrUpdateTeam(c, team)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.WriteAppError(c, err)
 		return
 	}
 
@@ -55,7 +62,7 @@ func (h *Handler) Get(c *gin.Context) {
 
 	t, err := h.Service.GetTeam(c, teamName)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.WriteAppError(c, err)
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/UsatovPavel/PRAssign/internal/response"
 	"github.com/UsatovPavel/PRAssign/internal/service"
 )
 
@@ -24,7 +25,7 @@ func (h *Handler) SetIsActive(c *gin.Context) {
 
 	u, err := h.service.SetIsActive(c.Request.Context(), req.UserID, req.IsActive)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.WriteAppError(c, err)
 		return
 	}
 
@@ -36,7 +37,7 @@ func (h *Handler) GetReview(c *gin.Context) {
 
 	result, err := h.service.GetReview(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.WriteAppError(c, err)
 		return
 	}
 
