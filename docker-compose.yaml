@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:15
+    container_name: pr-assignment-db
+    environment:
+      POSTGRES_DB: pr-assignment
+      POSTGRES_USER: pr-assignment
+      POSTGRES_PASSWORD: pr-assignment
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pr-assignment -d pr-assignment"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - pr-assignment_data:/var/lib/postgresql/data
+
+  migrate:
+    image: migrate/migrate:4
+    container_name: pr-assignment-migrations
+    command:
+      [
+        "-path", "/migrations",
+        "-database", "postgres://pr-assignment:pr-assignment@db:5432/pr-assignment?sslmode=disable",
+        "up"
+      ]
+    volumes:
+      - ./database/migrations:/migrations
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "on-failure"
+
+  app:
+    build: .
+    container_name: pr-assignment-service
+    environment:
+      DATABASE_URL: postgres://pr-assignment:pr-assignment@db:5432/pr-assignment?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pr-assignment_data:
