@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 
-	"github.com/gin-gonic/gin"
-    "github.com/UsatovPavel/PRAssign/internal/api"
-    "github.com/UsatovPavel/PRAssign/internal/storage"
-    "github.com/UsatovPavel/PRAssign/internal/repository"
-    "github.com/UsatovPavel/PRAssign/internal/service"
+	"github.com/UsatovPavel/PRAssign/internal/api"
+	"github.com/UsatovPavel/PRAssign/internal/api/team"
+	"github.com/UsatovPavel/PRAssign/internal/api/users"
+	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/repository"
+	"github.com/UsatovPavel/PRAssign/internal/service"
+	"github.com/UsatovPavel/PRAssign/internal/storage"
 )
 
 func main() {
@@ -22,17 +24,14 @@ func main() {
 
 	userService := service.NewUserService(userRepo)
 	teamService := service.NewTeamService(teamRepo)
-	prService := service.NewPRService(prRepo, teamRepo, userRepo)
+	prService := service.NewPullRequestService(prRepo, teamRepo, userRepo)
 
-	r := gin.Default()
+	handlers := &api.Handlers{
+		Team:  team.NewHandler(teamService),
+		Users: users.NewHandler(userService),
+		PR:    pullrequest.NewHandler(prService),
+	}
 
-	api.RegisterUserRoutes(r, userService)
-	api.RegisterTeamRoutes(r, teamService)
-	api.RegisterPullRequestRoutes(r, prService)
-
-	r.GET("/health", func(c *gin.Context) {
-		c.String(200, "ok")
-	})
-
-	r.Run(":8080")
+	router := api.InitRouter(handlers)
+	router.Run(":8080")
 }

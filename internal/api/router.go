@@ -2,11 +2,11 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	
+
 	"github.com/UsatovPavel/PRAssign/internal/api/health"
 	"github.com/UsatovPavel/PRAssign/internal/api/team"
 	"github.com/UsatovPavel/PRAssign/internal/api/users"
-	"github.com/UsatovPavel/PRAssign/internal/api/pullrequests"
+	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
 )
 
 type Handlers struct {

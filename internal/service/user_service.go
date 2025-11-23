@@ -15,13 +15,20 @@ func NewUserService(repo repository.UserRepository) *UserService {
 	return &UserService{users: repo}
 }
 
-func (s *UserService) SetIsActive(ctx context.Context, userID string, isActive bool) error {
+func (s *UserService) SetIsActive(ctx context.Context, userID string, isActive bool) (*models.User, error) {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	u.IsActive = isActive
-	return s.users.Upsert(ctx, *u)
+
+	err = s.users.Upsert(ctx, *u)
+	if err != nil {
+		return nil, err
+	}
+
+	return u, nil
 }
 
 func (s *UserService) GetByID(ctx context.Context, id string) (*models.User, error) {

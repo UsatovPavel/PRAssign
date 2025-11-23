@@ -32,13 +32,18 @@ func (h *Handler) Add(c *gin.Context) {
 		})
 	}
 
-	t, err := h.Service.CreateOrUpdateTeam(req.TeamName, members)
+	team := models.Team{
+		TeamName: req.TeamName,
+		Members:  members,
+	}
+
+	err := h.Service.CreateOrUpdateTeam(c, team)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"team": t})
+	c.JSON(http.StatusCreated, gin.H{"team": team})
 }
 
 func (h *Handler) Get(c *gin.Context) {
@@ -47,10 +52,12 @@ func (h *Handler) Get(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "team_name required"})
 		return
 	}
-	t, err := h.Service.GetTeam(teamName)
+
+	t, err := h.Service.GetTeam(c, teamName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, t)
 }

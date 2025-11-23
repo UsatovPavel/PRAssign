@@ -22,7 +22,7 @@ func (h *Handler) SetIsActive(c *gin.Context) {
 		return
 	}
 
-	u, err := h.service.SetIsActive(req.UserID, req.IsActive)
+	u, err := h.service.SetIsActive(c.Request.Context(), req.UserID, req.IsActive)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
