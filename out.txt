@@ -1,176 +1,47 @@
-package service
+import http from "k6/http";
+import { check } from "k6";
+import prRequests from "../data/pr-requests.json";
+import teams from "../data/teams.json";
 
-import (
-	"context"
-	"math/rand"
-	"time"
+export const options = {
+  vus: 1,
+  iterations: 1
+};
 
-	"github.com/UsatovPavel/PRAssign/internal/models"
-	"github.com/UsatovPavel/PRAssign/internal/repository"
-)
+export default function () {
+  teams.forEach(t => {
+    const r = http.post("http://localhost:8080/team/create", JSON.stringify(t), {
+      headers: { "Content-Type": "application/json" }
+    });
+    check(r, { ok: (res) => res.status === 200 });
+  });
 
-type PRService struct {
-	prRepo   repository.PullRequestRepository
-	teamRepo repository.TeamRepository
-	userRepo repository.UserRepository
-	rnd      *rand.Rand
+  prRequests.forEach(p => {
+    const r = http.post("http://localhost:8080/pullRequest/create", JSON.stringify(p), {
+      headers: { "Content-Type": "application/json" }
+    });
+    check(r, { ok: (res) => res.status === 200 || res.status === 409 });
+  });
 }
-
-func NewPullRequestService(
-	pr repository.PullRequestRepository,
-	team repository.TeamRepository,
-	user repository.UserRepository,
-) *PRService {
-	return &PRService{
-		prRepo:   pr,
-		teamRepo: team,
-		userRepo: user,
-		rnd:      rand.New(rand.NewSource(time.Now().UnixNano())),
-	}
-}
-
-// Create создает PR и назначает до 2 активных ревьюверов из команды автора
-func (s *PRService) Create(ctx context.Context, id, name, authorID string) (*models.PullRequest, error) {
-	author, err := s.userRepo.GetByID(ctx, authorID)
-	if err != nil {
-		return nil, models.NewAppError(models.NotFound, "author not found")
-	}
-
-	team, err := s.teamRepo.GetByName(ctx, author.TeamName)
-	if err != nil {
-		return nil, models.NewAppError(models.NotFound, "team not found")
-	}
-
-	candidates := make([]string, 0, len(team.Members))
-	for _, m := range team.Members {
-		if m.UserID == authorID {
-			continue
-		}
-		if !m.IsActive {
-			continue
-		}
-		candidates = append(candidates, m.UserID)
-	}
-
-	// случайный порядок
-	rand.Shuffle(len(candidates), func(i, j int) { candidates[i], candidates[j] = candidates[j], candidates[i] })
-
-	assigned := make([]string, 0, 2)
-	for i := 0; i < len(candidates) && i < 2; i++ {
-		assigned = append(assigned, candidates[i])
-	}
-
-	now := time.Now().UTC()
-	pr := models.PullRequest{
-		PullRequestID:     id,
-		PullRequestName:   name,
-		AuthorID:          authorID,
-		Status:            models.PRStatusOpen,
-		AssignedReviewers: assigned,
-		CreatedAt:         &now,
-	}
-
-	if err := s.prRepo.Create(ctx, pr); err != nil {
-		return nil, err
-	}
-
-	return &pr, nil
-}
-
-// Merge помечает PR как MERGED (идемпотентно)
-func (s *PRService) Merge(ctx context.Context, id string) (*models.PullRequest, error) {
-	pr, err := s.prRepo.GetByID(ctx, id)
-	if err != nil {
-		return nil, models.NewAppError(models.NotFound, "pr not found")
-	}
-
-	if pr.Status == models.PRStatusMerged {
-		return pr, nil
-	}
-
-	now := time.Now().UTC()
-	pr.Status = models.PRStatusMerged
-	pr.MergedAt = &now
-
-	if err := s.prRepo.Update(ctx, *pr); err != nil {
-		return nil, err
-	}
-
-	return pr, nil
-}
-
-// ReassignReviewer заменяет oldUserID на случайного активного участника из команды заменяемого ревьювера
-func (s *PRService) ReassignReviewer(ctx context.Context, prID, oldUserID string) (string, *models.PullRequest, error) {
-	pr, err := s.prRepo.GetByID(ctx, prID)
-	if err != nil {
-		return "", nil, models.NewAppError(models.NotFound, "pr not found")
-	}
-
-	if pr.Status == models.PRStatusMerged {
-		return "", nil, models.NewAppError(models.PRMerged, "cannot reassign on merged PR")
-	}
-
-	assignedIndex := -1
-	for i, uid := range pr.AssignedReviewers {
-		if uid == oldUserID {
-			assignedIndex = i
-			break
-		}
-	}
-	if assignedIndex == -1 {
-		return "", nil, models.NewAppError(models.NotAssigned, "reviewer is not assigned to this PR")
-	}
-
-	oldUser, err := s.userRepo.GetByID(ctx, oldUserID)
-	if err != nil {
-		return "", nil, models.NewAppError(models.NotFound, "old user not found")
-	}
-
-	team, err := s.teamRepo.GetByName(ctx, oldUser.TeamName)
-	if err != nil {
-		return "", nil, models.NewAppError(models.NotFound, "team not found")
-	}
-
-	exclude := map[string]struct{}{}
-	exclude[oldUserID] = struct{}{}
-	exclude[pr.AuthorID] = struct{}{}
-	for _, u := range pr.AssignedReviewers {
-		exclude[u] = struct{}{}
-	}
-
-	candidates := make([]string, 0, len(team.Members))
-	for _, m := range team.Members {
-		if _, ok := exclude[m.UserID]; ok {
-			continue
-		}
-		if !m.IsActive {
-			continue
-		}
-		candidates = append(candidates, m.UserID)
-	}
-
-	if len(candidates) == 0 {
-		return "", nil, models.NewAppError(models.NoCandidate, "no active replacement candidate in team")
-	}
-
-	rand.Shuffle(len(candidates), func(i, j int) { candidates[i], candidates[j] = candidates[j], candidates[i] })
-	newUser := candidates[0]
-
-	pr.AssignedReviewers[assignedIndex] = newUser
-
-	if err := s.prRepo.Update(ctx, *pr); err != nil {
-		return "", nil, err
-	}
-
-	return newUser, pr, nil
-}
-
-// ListAll возвращает все PR'ы
-func (s *PRService) ListAll(ctx context.Context) ([]models.PullRequest, error) {
-	return s.prRepo.ListAll(ctx)
-}
-
-// ListByReviewer возвращает PR'ы, где userID — ревьювер
-func (s *PRService) ListByReviewer(ctx context.Context, userID string) ([]models.PullRequest, error) {
-	return s.prRepo.ListByReviewer(ctx, userID)
-}
+[
+  {
+    "team_name": "backend",
+    "members": [
+      { "user_id": "u1", "username": "Alice", "is_active": true },
+      { "user_id": "u2", "username": "Bob", "is_active": false },
+      { "user_id": "u3", "username": "Carol", "is_active": true }
+    ]
+  }
+]
+[
+  {
+    "pull_request_id": "pr-1",
+    "pull_request_name": "Fix login",
+    "author_id": "u1"
+  },
+  {
+    "pull_request_id": "pr-2",
+    "pull_request_name": "Refactor cache",
+    "author_id": "u3"
+  }
+]

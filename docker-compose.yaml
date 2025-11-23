@@ -43,7 +43,25 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
+  k6:
+    image: grafana/k6:latest
+    profiles: ["tests"]
+    container_name: pr-assignment-loadtests
+    working_dir: /tests
+    volumes:
+      - ./loadtests:/tests
+    entrypoint: ["/bin/sh", "-c", "/tests/run-all.sh"]
+    depends_on:
+      - migrate
+    network_mode: host
+    restart: "no"
 volumes:
   pr-assignment_data:
+
