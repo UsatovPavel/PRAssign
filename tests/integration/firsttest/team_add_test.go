@@ -1,4 +1,4 @@
-package integration
+package integrationfirst
 
 import (
 	"bytes"
@@ -6,13 +6,19 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
+func unique(prefix string) string {
+	id := uuid.New().String()
+	return prefix + id[:8]
+}
 func TestTeamAdd(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	body := map[string]interface{}{
-		"team_name": unique("teamname-testteamadd"),
+		"team_name": unique("teamname-testteam"),
 		"members": []map[string]interface{}{
 			{"user_id": unique("u-test-1"), "username": "TestUser", "is_active": true},
 		},

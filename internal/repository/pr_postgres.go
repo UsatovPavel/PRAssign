@@ -24,7 +24,7 @@ func (r *PullRequestPostgres) Create(ctx context.Context, pr models.PullRequest)
 
     _, err = tx.Exec(ctx,
         `INSERT INTO pull_requests (pull_request_id, pull_request_name, author_id, status, created_at)
-         VALUES ($1,$2,$3,$4,$5)`,
+         VALUES ($1,$2,$3,$4,$5) ON CONFLICT (pull_request_id) DO NOTHING`,
         pr.PullRequestID, pr.PullRequestName, pr.AuthorID, string(pr.Status), pr.CreatedAt)
     if err != nil {
         return err
@@ -33,7 +33,7 @@ func (r *PullRequestPostgres) Create(ctx context.Context, pr models.PullRequest)
     for _, uid := range pr.AssignedReviewers {
         _, err = tx.Exec(ctx,
             `INSERT INTO pull_request_reviewers (pull_request_id, user_id, assigned_at)
-             VALUES ($1,$2,$3)`,
+             VALUES ($1,$2,$3) ON CONFLICT (pull_request_id, user_id) DO NOTHING`,
             pr.PullRequestID, uid, time.Now().UTC())
         if err != nil {
             return err
