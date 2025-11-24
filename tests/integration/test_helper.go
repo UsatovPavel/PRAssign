@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
 )
 
 var baseURL = getBaseURL()
@@ -28,6 +30,26 @@ func getBaseURL() string {
 	return v
 }
 
+func genToken() string {
+	secret := os.Getenv("AUTH_KEY")
+	if secret == "" {
+		return ""
+	}
+	now := time.Now().UTC()
+	claims := jwt.MapClaims{
+		"user_id":  "integration-test",
+		"is_admin": true,
+		"iat":      now.Unix(),
+		"exp":      now.Add(24 * time.Hour).Unix(),
+	}
+	tkn := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tkn.SignedString([]byte(secret))
+	if err != nil {
+		return ""
+	}
+	return signed
+}
+
 func postJSON(t *testing.T, path string, payload interface{}) (int, []byte) {
 	t.Helper()
 	b, err := json.Marshal(payload)
@@ -39,6 +61,9 @@ func postJSON(t *testing.T, path string, payload interface{}) (int, []byte) {
 		t.Fatalf("new req: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if token := genToken(); token != "" {
+		req.Header.Set("token", token)
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -64,8 +89,15 @@ func getJSON(t *testing.T, path string, params map[string]string) (int, []byte) 
 		q.Set(k, v)
 	}
 	u.RawQuery = q.Encode()
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		t.Fatalf("new req: %v", err)
+	}
+	if token := genToken(); token != "" {
+		req.Header.Set("token", token)
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(u.String())
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}

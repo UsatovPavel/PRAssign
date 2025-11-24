@@ -38,6 +38,7 @@ services:
     container_name: pr-assignment-service
     environment:
       DATABASE_URL: postgres://pr-assignment:pr-assignment@db:5432/pr-assignment?sslmode=disable
+      AUTH_KEY: ${AUTH_KEY}
     ports:
       - "8080:8080"
     depends_on:

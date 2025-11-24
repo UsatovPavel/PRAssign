@@ -4,16 +4,43 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 func unique(prefix string) string {
-	id := uuid.New().String()
-	return prefix + id[:8]
+	id := time.Now().UnixNano()
+	return prefix + idString(id)
 }
+
+func idString(i int64) string {
+	return "-" + strconv.FormatInt(i, 10)
+}
+
+func genToken() string {
+	secret := os.Getenv("AUTH_KEY")
+	if secret == "" {
+		return ""
+	}
+	now := time.Now().UTC()
+	claims := jwt.MapClaims{
+		"user_id":  "integration-test",
+		"is_admin": true,
+		"iat":      now.Unix(),
+		"exp":      now.Add(24 * time.Hour).Unix(),
+	}
+	tkn := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tkn.SignedString([]byte(secret))
+	if err != nil {
+		return ""
+	}
+	return signed
+}
+
 func TestTeamAdd(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
@@ -26,7 +53,17 @@ func TestTeamAdd(t *testing.T) {
 
 	b, _ := json.Marshal(body)
 
-	resp, err := http.Post("http://app_test:8080/team/add", "application/json", bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", "http://app_test:8080/team/add", bytes.NewBuffer(b))
+	if err != nil {
+		t.Fatalf("request new failed: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token := genToken(); token != "" {
+		req.Header.Set("token", token)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/spf13/viper"
+
 	"github.com/UsatovPavel/PRAssign/internal/api"
 	"github.com/UsatovPavel/PRAssign/internal/api/health"
 	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
@@ -17,6 +19,11 @@ import (
 
 func main() {
 	l := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+
+	if err := viper.BindEnv("AUTH_KEY"); err != nil {
+		l.Error("viper bind env failed", "err", err)
+		os.Exit(1)
+	}
 
 	db, err := storage.NewPostgres()
 	if err != nil {
