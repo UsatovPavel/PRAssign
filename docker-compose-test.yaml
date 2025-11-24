@@ -1,0 +1,72 @@
+services:
+  db_test:
+    image: postgres:15
+    container_name: pr-assignment-db-test
+    environment:
+      POSTGRES_DB: pr-assignment-test
+      POSTGRES_USER: pr-assignment
+      POSTGRES_PASSWORD: pr-assignment
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pr-assignment -d pr-assignment-test"]
+      interval: 3s
+      timeout: 5s
+      start_period: 10s
+      retries: 10
+    volumes:
+      - pr_assignment_test_data:/var/lib/postgresql/data
+    restart: "no"
+
+  migrate_test:
+    image: migrate/migrate:4
+    container_name: pr-assignment-migrations-test
+    command:
+      [
+        "-path", "/migrations",
+        "-database", "postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable",
+        "up"
+      ]
+    volumes:
+      - ./database/migrations:/migrations
+    depends_on:
+      db_test:
+        condition: service_healthy
+    restart: "no"
+
+  app_test:
+    build:
+      context: .
+    container_name: pr-assignment-service-test
+    environment:
+      DATABASE_URL: postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable
+      AUTH_KEY: test-secret
+    ports:
+      - "18080:8080"
+    depends_on:
+      migrate_test:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/healthcheck"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: "no"
+
+  tests:
+    image: golang:1.23-bullseye
+    working_dir: /app
+    volumes:
+      - .:/app
+    container_name: pr-assignment-integration-tests
+    depends_on:
+      app_test:
+        condition: service_healthy
+    environment:
+      API_BASE_URL: http://app_test:8080
+      DATABASE_URL: postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable
+      AUTH_KEY: test-secret
+    command: ["sh", "-c", "go test ./tests/integration/... -v -count=1 | tee /app/test-integration-report.log"]
+    restart: "no"
+volumes:
+  pr_assignment_test_data:

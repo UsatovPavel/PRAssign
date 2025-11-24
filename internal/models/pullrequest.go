@@ -1,0 +1,20 @@
+package models
+
+import "time"
+
+type PullRequestStatus string
+
+const (
+	PRStatusOpen   PullRequestStatus = "OPEN"
+	PRStatusMerged PullRequestStatus = "MERGED"
+)
+
+type PullRequest struct {
+	PullRequestID     string            `json:"pull_request_id"`
+	PullRequestName   string            `json:"pull_request_name"`
+	AuthorID          string            `json:"author_id"`
+	Status            PullRequestStatus `json:"status"`
+	AssignedReviewers []string          `json:"assigned_reviewers"`
+	CreatedAt         *time.Time        `json:"createdAt,omitempty"`
+	MergedAt          *time.Time        `json:"mergedAt,omitempty"`
+}

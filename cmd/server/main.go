@@ -1,0 +1,59 @@
+package main
+
+import (
+	"log/slog"
+	"os"
+
+	"github.com/spf13/viper"
+
+	"github.com/UsatovPavel/PRAssign/internal/api"
+	"github.com/UsatovPavel/PRAssign/internal/api/health"
+	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
+	"github.com/UsatovPavel/PRAssign/internal/api/team"
+	"github.com/UsatovPavel/PRAssign/internal/api/users"
+	"github.com/UsatovPavel/PRAssign/internal/config"
+	"github.com/UsatovPavel/PRAssign/internal/middleware"
+	"github.com/UsatovPavel/PRAssign/internal/repository"
+	"github.com/UsatovPavel/PRAssign/internal/service"
+	"github.com/UsatovPavel/PRAssign/internal/storage"
+)
+
+func main() {
+	l := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+
+	if err := viper.BindEnv("AUTH_KEY"); err != nil {
+		l.Error("viper bind env failed", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+
+	db, err := storage.NewPostgres()
+	if err != nil {
+		l.Error("db connection error", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+
+	userRepo := repository.NewUserRepository(db)
+	teamRepo := repository.NewTeamRepository(db)
+	prRepo := repository.NewPullRequestRepository(db)
+
+	userService := service.NewUserService(userRepo, prRepo, l)
+	teamService := service.NewTeamService(teamRepo, l)
+	prService := service.NewPullRequestService(prRepo, teamRepo, userRepo, l)
+
+	handlers := &api.Handlers{
+		Team:       team.NewHandler(teamService, l),
+		Users:      users.NewHandler(userService, l),
+		PR:         pullrequest.NewHandler(prService, l),
+		Health:     health.NewHandler(l),
+		Statistics: statistics.NewHandler(prService, l),
+	}
+
+	router := api.InitRouter(handlers, l)
+	router.Use(middleware.SkipK6Logger(l))
+
+	if err := router.Run(":8080"); err != nil {
+		l.Error("server stopped", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+}
