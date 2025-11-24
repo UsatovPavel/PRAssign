@@ -50,3 +50,7 @@ func codeToStatus(code models.ErrorCode) int {
 		return http.StatusBadRequest
 	}
 }
+
+func WriteValidationError(c *gin.Context, msg string) {
+	c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": msg}})
+}

@@ -16,6 +16,8 @@ type prResp struct {
 }
 
 func TestTeamCRUD(t *testing.T) {
+	adminToken := genTokenFor("integration-test", true)
+
 	tn := unique("team")
 	u1 := unique("u1")
 	u2 := unique("u2")
@@ -26,7 +28,7 @@ func TestTeamCRUD(t *testing.T) {
 			{UserID: u2, Username: "Bob", IsActive: true},
 		},
 	}
-	status, body := postJSON(t, "/team/add", team)
+	status, body := postJSONWithToken(t, "/team/add", team, adminToken)
 	if status != 201 {
 		t.Fatalf("team add expected 201, got %d body=%s", status, string(body))
 	}
@@ -37,7 +39,7 @@ func TestTeamCRUD(t *testing.T) {
 	if cre.Team.TeamName != tn {
 		t.Fatalf("team name mismatch")
 	}
-	status, body = getJSON(t, "/team/get", map[string]string{"team_name": tn})
+	status, body = getJSONWithToken(t, "/team/get", map[string]string{"team_name": tn}, adminToken)
 	if status != 200 {
 		t.Fatalf("team get expected 200 got %d body=%s", status, string(body))
 	}
@@ -51,17 +53,19 @@ func TestTeamCRUD(t *testing.T) {
 }
 
 func TestDuplicateTeam(t *testing.T) {
+	adminToken := genTokenFor("integration-test", true)
+
 	tn := unique("dupteam")
 	u1 := unique("u1")
 	team := models.Team{
 		TeamName: tn,
 		Members:  []models.TeamMember{{UserID: u1, Username: "Alice", IsActive: true}},
 	}
-	status, _ := postJSON(t, "/team/add", team)
+	status, _ := postJSONWithToken(t, "/team/add", team, adminToken)
 	if status != 201 {
 		t.Fatalf("first create expected 201 got %d", status)
 	}
-	status, body := postJSON(t, "/team/add", team)
+	status, body := postJSONWithToken(t, "/team/add", team, adminToken)
 	if status == 201 {
 		t.Fatalf("duplicate create should not return 201")
 	}
@@ -81,6 +85,7 @@ func TestPRWorkflowAndMergeIdempotency(t *testing.T) {
 	author := unique("author")
 	rev1 := unique("rev1")
 	rev2 := unique("rev2")
+	adminToken := genTokenFor("integration-test", true)
 	team := models.Team{
 		TeamName: tn,
 		Members: []models.TeamMember{
@@ -89,16 +94,17 @@ func TestPRWorkflowAndMergeIdempotency(t *testing.T) {
 			{UserID: rev2, Username: "Rev2", IsActive: true},
 		},
 	}
-	status, body := postJSON(t, "/team/add", team)
+	status, body := postJSONWithToken(t, "/team/add", team, adminToken)
 	if status != 201 {
 		t.Fatalf("team add for pr expected 201 got %d body=%s", status, string(body))
 	}
 	prID := unique("pr")
-	status, body = postJSON(t, "/pullRequest/create", map[string]string{
+	token := genTokenFor(author, false)
+	status, body = postJSONWithToken(t, "/pullRequest/create", map[string]string{
 		"pull_request_id":   prID,
 		"pull_request_name": "Add feature",
 		"author_id":         author,
-	})
+	}, token)
 	if status != 201 {
 		t.Fatalf("create pr expected 201 got %d body=%s", status, string(body))
 	}
@@ -114,7 +120,8 @@ func TestPRWorkflowAndMergeIdempotency(t *testing.T) {
 			t.Fatalf("author assigned as reviewer")
 		}
 	}
-	status, body = postJSON(t, "/pullRequest/merge", map[string]string{"pull_request_id": prID})
+	token = genTokenFor(author, false)
+	status, body = postJSONWithToken(t, "/pullRequest/merge", map[string]string{"pull_request_id": prID}, token)
 	if status != 200 {
 		t.Fatalf("merge expected 200 got %d body=%s", status, string(body))
 	}
@@ -123,9 +130,10 @@ func TestPRWorkflowAndMergeIdempotency(t *testing.T) {
 		t.Fatalf("unmarshal merge: %v", err)
 	}
 	if m.Pr.Status != models.PRStatusMerged {
-    	t.Fatalf("merge status expected MERGED, got %s", m.Pr.Status)
+		t.Fatalf("merge status expected MERGED, got %s", m.Pr.Status)
 	}
-	status, body = postJSON(t, "/pullRequest/merge", map[string]string{"pull_request_id": prID})
+	token = genTokenFor(author, false)
+	status, body = postJSONWithToken(t, "/pullRequest/merge", map[string]string{"pull_request_id": prID}, token)
 	if status != 200 {
 		t.Fatalf("merge idempotent expected 200 got %d body=%s", status, string(body))
 	}
@@ -135,6 +143,7 @@ func TestUsersGetReview(t *testing.T) {
 	tn := unique("teamrev")
 	author := unique("author2")
 	rev := unique("rev")
+	adminToken := genTokenFor("integration-test", true)
 	team := models.Team{
 		TeamName: tn,
 		Members: []models.TeamMember{
@@ -142,26 +151,28 @@ func TestUsersGetReview(t *testing.T) {
 			{UserID: rev, Username: "Rev", IsActive: true},
 		},
 	}
-	status, body := postJSON(t, "/team/add", team)
+	status, body := postJSONWithToken(t, "/team/add", team, adminToken)
 	if status != 201 {
 		t.Fatalf("team add expected 201 got %d body=%s", status, string(body))
 	}
 	prID := unique("pr2")
-	status, body = postJSON(t, "/pullRequest/create", map[string]string{
+	token := genTokenFor(author, false)
+	status, body = postJSONWithToken(t, "/pullRequest/create", map[string]string{
 		"pull_request_id":   prID,
 		"pull_request_name": "Do thing",
 		"author_id":         author,
-	})
+	}, token)
 	if status != 201 {
 		t.Fatalf("create pr expected 201 got %d body=%s", status, string(body))
 	}
-	status, body = getJSON(t, "/users/getReview", map[string]string{"user_id": rev})
+	token = genTokenFor(rev, false)
+	status, body = getJSONWithToken(t, "/users/getReview", map[string]string{"user_id": rev}, token)
 	if status != 200 {
 		t.Fatalf("getReview expected 200 got %d body=%s", status, string(body))
 	}
 	var resp struct {
-		UserID       string    `json:"user_id"`
-		PullRequests []PRShort `json:"pull_requests"`
+		UserID       string                  `json:"user_id"`
+		PullRequests []models.ReviewResponse `json:"pull_requests"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		t.Fatalf("unmarshal getReview: %v", err)
@@ -175,6 +186,7 @@ func TestReassignEdgeCases(t *testing.T) {
 	tn := unique("teamr")
 	author := unique("ar")
 	a1 := unique("a1")
+	adminToken := genTokenFor("integration-test", true)
 	team := models.Team{
 		TeamName: tn,
 		Members: []models.TeamMember{
@@ -182,34 +194,38 @@ func TestReassignEdgeCases(t *testing.T) {
 			{UserID: a1, Username: "A1", IsActive: true},
 		},
 	}
-	status, body := postJSON(t, "/team/add", team)
+	status, body := postJSONWithToken(t, "/team/add", team, adminToken)
 	if status != 201 {
 		t.Fatalf("team add expected 201 got %d body=%s", status, string(body))
 	}
 	prID := unique("prr")
-	status, body = postJSON(t, "/pullRequest/create", map[string]string{
+	token := genTokenFor(author, false)
+	status, body = postJSONWithToken(t, "/pullRequest/create", map[string]string{
 		"pull_request_id":   prID,
 		"pull_request_name": "Edge",
 		"author_id":         author,
-	})
+	}, token)
 	if status != 201 {
 		t.Fatalf("create pr expected 201 got %d body=%s", status, string(body))
 	}
-	status, _ = postJSON(t, "/pullRequest/reassign", map[string]string{
+	token = genTokenFor(author, false)
+	status, _ = postJSONWithToken(t, "/pullRequest/reassign", map[string]string{
 		"pull_request_id": prID,
 		"old_user_id":     "not-assigned",
-	})
+	}, token)
 	if status == 200 {
 		t.Fatalf("reassign should not succeed for not assigned user")
 	}
-	status, _ = postJSON(t, "/pullRequest/merge", map[string]string{"pull_request_id": prID})
+	token = genTokenFor(author, false)
+	status, _ = postJSONWithToken(t, "/pullRequest/merge", map[string]string{"pull_request_id": prID}, token)
 	if status != 200 {
 		t.Fatalf("merge expected 200 got %d", status)
 	}
-	status, _ = postJSON(t, "/pullRequest/reassign", map[string]string{
+	token = genTokenFor(author, false)
+	status, _ = postJSONWithToken(t, "/pullRequest/reassign", map[string]string{
 		"pull_request_id": prID,
 		"old_user_id":     a1,
-	})
+	}, token)
 	if status == 200 {
 		t.Fatalf("reassign on merged PR should not succeed")
 	}
@@ -223,7 +239,8 @@ func BenchmarkCreateTeam(b *testing.B) {
 			TeamName: tn,
 			Members:  []models.TeamMember{{UserID: u1, Username: "Alice", IsActive: true}},
 		}
-		status, _ := postJSON(nilTesting(b), "/team/add", team)
+		adminToken := genTokenFor("integration-test", true)
+		status, _ := postJSONWithToken(&testing.T{}, "/team/add", team, adminToken)
 		if status != 201 {
 			b.Fatalf("bench create expected 201 got %d", status)
 		}

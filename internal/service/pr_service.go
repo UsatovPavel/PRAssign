@@ -82,7 +82,7 @@ func (s *PRService) Create(ctx context.Context, id, name, authorID string) (*mod
 	return &pr, nil
 }
 
-func (s *PRService) Merge(ctx context.Context, id string) (*models.PullRequest, error) {
+func (s *PRService) Merge(ctx context.Context, id, actingUser string, isAdmin bool) (*models.PullRequest, error) {
 	pr, err := s.prRepo.GetByID(ctx, id)
 	if err != nil {
 		s.l.Error("merge pr: get by id failed", "err", err, "pr_id", id)
@@ -93,6 +93,11 @@ func (s *PRService) Merge(ctx context.Context, id string) (*models.PullRequest, 
 		return pr, nil
 	}
 
+	if pr.AuthorID != actingUser && !isAdmin {
+		s.l.Warn("merge pr: forbidden", "acting", actingUser, "pr_author", pr.AuthorID, "pr_id", id)
+		return nil, models.NewAppError(models.NotFound, "not allowed to merge")
+	}
+
 	now := time.Now().UTC()
 	pr.Status = models.PRStatusMerged
 	pr.MergedAt = &now
@@ -101,15 +106,19 @@ func (s *PRService) Merge(ctx context.Context, id string) (*models.PullRequest, 
 		s.l.Error("merge pr: update failed", "err", err, "pr_id", id)
 		return nil, err
 	}
-
 	return pr, nil
 }
 
-func (s *PRService) ReassignReviewer(ctx context.Context, prID, oldUserID string) (string, *models.PullRequest, error) {
+func (s *PRService) ReassignReviewer(ctx context.Context, prID, oldUserID, actingUser string, isAdmin bool) (string, *models.PullRequest, error) {
 	pr, err := s.prRepo.GetByID(ctx, prID)
 	if err != nil {
 		s.l.Error("reassign: get pr failed", "err", err, "pr_id", prID)
 		return "", nil, models.NewAppError(models.NotFound, "pr not found")
+	}
+
+	if pr.AuthorID != actingUser && !isAdmin {
+		s.l.Warn("reassign: forbidden", "acting", actingUser, "pr_author", pr.AuthorID, "pr_id", prID)
+		return "", nil, models.NewAppError(models.NotFound, "not allowed to reassign")
 	}
 
 	if pr.Status == models.PRStatusMerged {
@@ -193,4 +202,13 @@ func (s *PRService) ListByReviewer(ctx context.Context, userID string) ([]models
 		return nil, err
 	}
 	return out, nil
+}
+
+func (s *PRService) GetByID(ctx context.Context, id string) (*models.PullRequest, error) {
+	pr, err := s.prRepo.GetByID(ctx, id)
+	if err != nil {
+		s.l.Error("pr get by id failed", "err", err, "pr_id", id)
+		return nil, models.NewAppError(models.NotFound, "pr not found")
+	}
+	return pr, nil
 }

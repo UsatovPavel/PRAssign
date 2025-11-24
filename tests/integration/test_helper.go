@@ -15,13 +15,6 @@ import (
 
 var baseURL = getBaseURL()
 
-type PRShort struct {
-	PullRequestID   string `json:"pull_request_id"`
-	PullRequestName string `json:"pull_request_name"`
-	AuthorID        string `json:"author_id"`
-	Status          string `json:"status"`
-}
-
 func getBaseURL() string {
 	v := os.Getenv("API_BASE_URL")
 	if v == "" {
@@ -30,15 +23,15 @@ func getBaseURL() string {
 	return v
 }
 
-func genToken() string {
+func genTokenFor(user string, isAdmin bool) string {
 	secret := os.Getenv("AUTH_KEY")
 	if secret == "" {
 		return ""
 	}
 	now := time.Now().UTC()
 	claims := jwt.MapClaims{
-		"user_id":  "integration-test",
-		"is_admin": true,
+		"user_id":  user,
+		"is_admin": isAdmin,
 		"iat":      now.Unix(),
 		"exp":      now.Add(24 * time.Hour).Unix(),
 	}
@@ -50,7 +43,7 @@ func genToken() string {
 	return signed
 }
 
-func postJSON(t *testing.T, path string, payload interface{}) (int, []byte) {
+func postJSONWithToken(t *testing.T, path string, payload interface{}, token string) (int, []byte) {
 	t.Helper()
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -61,7 +54,7 @@ func postJSON(t *testing.T, path string, payload interface{}) (int, []byte) {
 		t.Fatalf("new req: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if token := genToken(); token != "" {
+	if token != "" {
 		req.Header.Set("token", token)
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -78,7 +71,7 @@ func postJSON(t *testing.T, path string, payload interface{}) (int, []byte) {
 	return resp.StatusCode, buf.Bytes()
 }
 
-func getJSON(t *testing.T, path string, params map[string]string) (int, []byte) {
+func getJSONWithToken(t *testing.T, path string, params map[string]string, token string) (int, []byte) {
 	t.Helper()
 	u, err := url.Parse(baseURL + path)
 	if err != nil {
@@ -93,7 +86,7 @@ func getJSON(t *testing.T, path string, params map[string]string) (int, []byte) 
 	if err != nil {
 		t.Fatalf("new req: %v", err)
 	}
-	if token := genToken(); token != "" {
+	if token != "" {
 		req.Header.Set("token", token)
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -112,8 +105,4 @@ func getJSON(t *testing.T, path string, params map[string]string) (int, []byte) 
 
 func unique(prefix string) string {
 	return prefix + "-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-}
-
-func nilTesting(_ *testing.B) *testing.T {
-	return &testing.T{}
 }

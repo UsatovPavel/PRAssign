@@ -41,6 +41,11 @@ func (h *Handler) SetIsActive(c *gin.Context) {
 
 func (h *Handler) GetReview(c *gin.Context) {
 	userID := c.Query("user_id")
+	if userID == "" {
+		h.l.Error("users.getReview: missing user_id")
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": "user_id required"}})
+		return
+	}
 	h.l.Info("users.getReview: request", slog.String("user", userID))
 
 	result, err := h.service.GetReview(c.Request.Context(), userID)

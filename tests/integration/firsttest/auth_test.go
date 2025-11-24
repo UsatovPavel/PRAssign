@@ -12,7 +12,7 @@ func TestAuthTokenGeneration(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	body := map[string]interface{}{
-		"user": unique("authuser"),
+		"username": unique("authuser"),
 	}
 
 	b, _ := json.Marshal(body)
