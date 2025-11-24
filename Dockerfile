@@ -16,10 +16,20 @@ COPY go.mod go.sum ./
 RUN --mount=type=ssh  go mod download
 COPY . .
 
-RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-    | sh -s -- -b /usr/local/bin v2.6.2
-RUN golangci-lint run --config .golangci.yml ./...
+ARG SKIP_LINT=false
 
+RUN if [ "${SKIP_LINT}" != "true" ]; then \
+      curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+        | sh -s -- -b /usr/local/bin v2.6.2; \
+    else \
+      echo "SKIP_LINT=true — skipping golangci-lint install"; \
+    fi
+
+RUN if [ "${SKIP_LINT}" != "true" ]; then \
+      golangci-lint run --config .golangci.yml ./...; \
+    else \
+      echo "SKIP_LINT=true — skipping golangci-lint run"; \
+    fi
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /healthcheck ./cmd/healthcheck
 

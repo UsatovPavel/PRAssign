@@ -1,5 +1,6 @@
 import http from "k6/http";
 import { sleep } from "k6";
+import { BASE } from "./config/constants.js";
 
 export const options = {
   vus: 1,
@@ -12,7 +13,7 @@ export const options = {
 export default function () {
   const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
-    let res = http.get("http://localhost:8080/health");
+    let res = http.get(`${BASE}/health`);
     if (res.status === 200) {
       return;
     }

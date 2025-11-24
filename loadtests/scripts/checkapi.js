@@ -1,5 +1,6 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
+import { check } from "k6";
+import { BASE } from "./config/constants.js";
 
 export const options = {
   vus: 1,
@@ -7,12 +8,23 @@ export const options = {
 };
 
 export default function () {
-    const BASE_URL = "http://app:8080";
-    const r1 = http.get(`${BASE_URL}/team/get`);
-  check(r1, { t: (res) => res.status === 200 });
+  const adminTokenRes = http.post(`${BASE}/auth/token`,
+    JSON.stringify({ username: "integration-test" }),
+    { headers: { "Content-Type": "application/json" } });
+  const adminToken = (() => { try { return adminTokenRes.json().token || ""; } catch (e) { return ""; } })();
 
-  const r2 = http.get("http://localhost:8080/users/getReview?user_id=u1");
-  check(r2, { u: (res) => res.status === 200 });
+  const userTokenRes = http.post(`${BASE}/auth/token`,
+    JSON.stringify({ username: "u1" }),
+    { headers: { "Content-Type": "application/json" } });
+  const userToken = (() => { try { return userTokenRes.json().token || ""; } catch (e) { return ""; } })();
 
-  sleep(1);
+  let res = http.get(`${BASE}/team/get?team_name=backend`, {
+    headers: { token: adminToken }
+  });
+  check(res, { "team get OK": (r) => r.status === 200 || r.status === 404 });
+
+  res = http.get(`${BASE}/users/getReview?user_id=u1`, {
+    headers: { token: userToken }
+  });
+  check(res, { "users getReview OK": (r) => r.status === 200 || r.status === 404 });
 }

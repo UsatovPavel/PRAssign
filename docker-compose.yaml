@@ -52,17 +52,22 @@ services:
     restart: unless-stopped
 
   k6:
-    image: grafana/k6:latest
+    image: grafana/k6:0.47.0
     profiles: ["tests"]
-    container_name: pr-assignment-loadtests
     working_dir: /tests
     volumes:
       - ./loadtests:/tests
-    entrypoint: ["/bin/sh", "-c", "/tests/run-all.sh 2>/dev/null"]
+      - ./loadtests/reports:/tests/reports
+    entrypoint: ["/bin/sh", "-c", "/tests/run-all.sh"]
     depends_on:
-      - migrate
-    network_mode: host
+      - app
     restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   pr-assignment_data:
 
+networks:
+  default:
+    name: prassign_default
