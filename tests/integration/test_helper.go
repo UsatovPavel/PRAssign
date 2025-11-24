@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/UsatovPavel/PRAssign/internal/config"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 )
 
 var baseURL = getBaseURL()
@@ -119,5 +119,5 @@ func getJSONWithToken(t *testing.T, path string, params map[string]string, token
 }
 
 func unique(prefix string) string {
-	return prefix + "-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	return prefix + "-" + uuid.NewString()[:8]
 }

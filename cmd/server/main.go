@@ -9,6 +9,7 @@ import (
 	"github.com/UsatovPavel/PRAssign/internal/api"
 	"github.com/UsatovPavel/PRAssign/internal/api/health"
 	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
 	"github.com/UsatovPavel/PRAssign/internal/api/team"
 	"github.com/UsatovPavel/PRAssign/internal/api/users"
 	"github.com/UsatovPavel/PRAssign/internal/config"
@@ -41,10 +42,11 @@ func main() {
 	prService := service.NewPullRequestService(prRepo, teamRepo, userRepo, l)
 
 	handlers := &api.Handlers{
-		Team:   team.NewHandler(teamService, l),
-		Users:  users.NewHandler(userService, l),
-		PR:     pullrequest.NewHandler(prService, l),
-		Health: health.NewHandler(l),
+		Team:       team.NewHandler(teamService, l),
+		Users:      users.NewHandler(userService, l),
+		PR:         pullrequest.NewHandler(prService, l),
+		Health:     health.NewHandler(l),
+		Statistics: statistics.NewHandler(prService, l),
 	}
 
 	router := api.InitRouter(handlers, l)
