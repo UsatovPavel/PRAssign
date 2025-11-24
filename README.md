@@ -1,5 +1,5 @@
 # PRAssign
-
+Go with Gin microservice for Avito TestTask. Provides API for user/pullrequests/team management,assignments statistics.
 ## Quick Start
 1. Clone repository:
    ```bash
