@@ -1,21 +1,21 @@
 package repository
 
 import (
-    "context"
+	"context"
 
-    "github.com/UsatovPavel/PRAssign/internal/models"
+	"github.com/UsatovPavel/PRAssign/internal/models"
 )
 
 type UserPostgres struct {
-    db *PostgresRepo
+	db *PostgresRepo
 }
 
 func NewUserRepository(db *PostgresRepo) *UserPostgres {
-    return &UserPostgres{db: db}
+	return &UserPostgres{db: db}
 }
 
 func (r *UserPostgres) Upsert(ctx context.Context, u models.User) error {
-    query := `
+	query := `
 INSERT INTO users (user_id, username, team_name, is_active)
 VALUES ($1,$2,$3,$4)
 ON CONFLICT (user_id) DO UPDATE
@@ -23,18 +23,18 @@ SET username = EXCLUDED.username,
     team_name = EXCLUDED.team_name,
     is_active = EXCLUDED.is_active
 `
-    _, err := r.db.Pool.Exec(ctx, query, u.UserID, u.Username, u.TeamName, u.IsActive)
-    return err
+	_, err := r.db.Pool.Exec(ctx, query, u.UserID, u.Username, u.TeamName, u.IsActive)
+	return err
 }
 
 func (r *UserPostgres) GetByID(ctx context.Context, id string) (*models.User, error) {
-    query := `SELECT user_id, username, team_name, is_active FROM users WHERE user_id = $1`
-    row := r.db.Pool.QueryRow(ctx, query, id)
+	query := `SELECT user_id, username, team_name, is_active FROM users WHERE user_id = $1`
+	row := r.db.Pool.QueryRow(ctx, query, id)
 
-    var u models.User
-    if err := row.Scan(&u.UserID, &u.Username, &u.TeamName, &u.IsActive); err != nil {
-        return nil, models.NewAppError(models.NotFound, "user not found")
-    }
+	var u models.User
+	if err := row.Scan(&u.UserID, &u.Username, &u.TeamName, &u.IsActive); err != nil {
+		return nil, models.NewAppError(models.NotFound, "user not found")
+	}
 
-    return &u, nil
+	return &u, nil
 }

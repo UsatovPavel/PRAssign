@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/UsatovPavel/PRAssign/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/spf13/viper"
@@ -39,7 +40,7 @@ func (h *Handler) TokenByUsername(c *gin.Context) {
 		"user_id":  req.Username,
 		"is_admin": req.Username == "admin",
 		"iat":      now.Unix(),
-		"exp":      now.Add(24 * time.Hour).Unix(),
+		"exp":      now.Add(config.TokenExpiration).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString([]byte(secret))

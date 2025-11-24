@@ -26,10 +26,16 @@ func (r *PullRequestPostgres) Create(ctx context.Context, pr models.PullRequest)
 		}
 	}()
 
-	_, err = tx.Exec(ctx,
+	_, err = tx.Exec(
+		ctx,
 		`INSERT INTO pull_requests (pull_request_id, pull_request_name, author_id, status, created_at)
          VALUES ($1,$2,$3,$4,$5) ON CONFLICT (pull_request_id) DO NOTHING`,
-		pr.PullRequestID, pr.PullRequestName, pr.AuthorID, string(pr.Status), pr.CreatedAt)
+		pr.PullRequestID,
+		pr.PullRequestName,
+		pr.AuthorID,
+		string(pr.Status),
+		pr.CreatedAt,
+	)
 	if err != nil {
 		return err
 	}
@@ -97,10 +103,17 @@ func (r *PullRequestPostgres) Update(ctx context.Context, pr models.PullRequest)
 		}
 	}()
 
-	_, err = tx.Exec(ctx,
+	_, err = tx.Exec(
+		ctx,
 		`UPDATE pull_requests SET pull_request_name=$1, author_id=$2,
          status=$3, created_at=$4, merged_at=$5 WHERE pull_request_id=$6`,
-		pr.PullRequestName, pr.AuthorID, string(pr.Status), pr.CreatedAt, pr.MergedAt, pr.PullRequestID)
+		pr.PullRequestName,
+		pr.AuthorID,
+		string(pr.Status),
+		pr.CreatedAt,
+		pr.MergedAt,
+		pr.PullRequestID,
+	)
 	if err != nil {
 		return err
 	}
@@ -125,7 +138,10 @@ func (r *PullRequestPostgres) Update(ctx context.Context, pr models.PullRequest)
 	return tx.Commit(ctx)
 }
 
-func (r *PullRequestPostgres) ListByReviewer(ctx context.Context, userID string) ([]models.PullRequest, error) {
+func (r *PullRequestPostgres) ListByReviewer(
+	ctx context.Context,
+	userID string,
+) ([]models.PullRequest, error) {
 	rows, err := r.db.Pool.Query(ctx,
 		`SELECT pull_request_id
          FROM pull_request_reviewers

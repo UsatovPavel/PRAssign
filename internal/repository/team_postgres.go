@@ -25,7 +25,11 @@ func (r *TeamPostgres) CreateOrUpdate(ctx context.Context, t models.Team) error 
 		}
 	}()
 
-	_, err = tx.Exec(ctx, `INSERT INTO teams (team_name) VALUES ($1) ON CONFLICT DO NOTHING`, t.TeamName)
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO teams (team_name) VALUES ($1) ON CONFLICT DO NOTHING`,
+		t.TeamName,
+	)
 	if err != nil {
 		return err
 	}

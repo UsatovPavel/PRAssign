@@ -16,10 +16,10 @@ type AppError struct {
 	Message string    `json:"message"`
 }
 
-func (e *AppError) Error() string {
-	return string(e.Code) + ": " + e.Message
-}
-
 func NewAppError(code ErrorCode, msg string) *AppError {
 	return &AppError{Code: code, Message: msg}
+}
+
+func (e *AppError) Error() string {
+	return string(e.Code) + ": " + e.Message
 }

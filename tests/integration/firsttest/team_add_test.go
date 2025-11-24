@@ -1,7 +1,8 @@
-package integrationfirst
+package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -53,7 +54,17 @@ func TestTeamAdd(t *testing.T) {
 
 	b, _ := json.Marshal(body)
 
-	req, err := http.NewRequest("POST", "http://app_test:8080/team/add", bytes.NewBuffer(b))
+	ctx := context.Background()
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"http://app_test:8080/team/add",
+		bytes.NewBuffer(b),
+	)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
 	if err != nil {
 		t.Fatalf("request new failed: %v", err)
 	}
@@ -69,7 +80,7 @@ func TestTeamAdd(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 201 && resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 201 or 200, got %d", resp.StatusCode)
 	}
 }

@@ -1,6 +1,7 @@
 package response
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/UsatovPavel/PRAssign/internal/models"
@@ -8,7 +9,8 @@ import (
 )
 
 func WriteAppError(c *gin.Context, err error) {
-	if app, ok := err.(*models.AppError); ok {
+	var app *models.AppError
+	if errors.As(err, &app) {
 		c.JSON(codeToStatus(app.Code), gin.H{
 			"error": gin.H{
 				"code":    app.Code,

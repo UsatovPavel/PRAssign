@@ -3,10 +3,10 @@ package storage
 import (
 	"context"
 	"os"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/UsatovPavel/PRAssign/internal/config"
 	"github.com/UsatovPavel/PRAssign/internal/repository"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func NewPostgres() (*repository.PostgresRepo, error) {
@@ -15,7 +15,7 @@ func NewPostgres() (*repository.PostgresRepo, error) {
 		dsn = "postgres://pr-assignment:pr-assignment@db:5432/pr-assignment?sslmode=disable"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), config.HTTPClientTimeoutLong)
 	defer cancel()
 
 	cfg, err := pgxpool.ParseConfig(dsn)

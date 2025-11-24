@@ -15,11 +15,19 @@ type UserService struct {
 	l      *slog.Logger
 }
 
-func NewUserService(userRepo repository.UserRepository, prRepo repository.PullRequestRepository, l *slog.Logger) *UserService {
+func NewUserService(
+	userRepo repository.UserRepository,
+	prRepo repository.PullRequestRepository,
+	l *slog.Logger,
+) *UserService {
 	return &UserService{users: userRepo, prRepo: prRepo, l: l}
 }
 
-func (s *UserService) SetIsActive(ctx context.Context, userID string, isActive bool) (*models.User, error) {
+func (s *UserService) SetIsActive(
+	ctx context.Context,
+	userID string,
+	isActive bool,
+) (*models.User, error) {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		s.l.Error("setIsActive: get user failed", "err", err, "user", userID)
@@ -45,7 +53,10 @@ func (s *UserService) GetByID(ctx context.Context, id string) (*models.User, err
 	return u, nil
 }
 
-func (s *UserService) GetReview(ctx context.Context, userID string) (*models.ReviewResponse, error) {
+func (s *UserService) GetReview(
+	ctx context.Context,
+	userID string,
+) (*models.ReviewResponse, error) {
 	actingUserInf := ctx.Value(middleware.ContextUserID)
 	if actingUserInf == nil {
 		s.l.Error("get review: no acting user in context")

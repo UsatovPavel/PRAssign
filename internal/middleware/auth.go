@@ -26,22 +26,28 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+func getToken(c *gin.Context) string {
+	t := c.GetHeader("token")
+	if t != "" {
+		return t
+	}
+	auth := c.GetHeader("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+	return ""
+}
+
 func AuthRequired(l *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("token")
-		if tokenString == "" {
-			auth := c.GetHeader("Authorization")
-			if strings.HasPrefix(auth, "Bearer ") {
-				tokenString = strings.TrimPrefix(auth, "Bearer ")
-			}
-		}
-		if tokenString == "" {
+		token := getToken(c)
+		if token == "" {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
 		claims := &Claims{}
-		parsed, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		parsed, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("invalid signing method")
 			}
@@ -56,41 +62,14 @@ func AuthRequired(l *slog.Logger) gin.HandlerFunc {
 			return
 		}
 
-		var uid string
-		var isAdmin bool
-
-		if mc, ok := parsed.Claims.(jwt.MapClaims); ok {
-			if v, ok := mc["user_id"].(string); ok {
-				uid = v
-			}
-			switch v := mc["is_admin"].(type) {
-			case bool:
-				isAdmin = v
-			case float64:
-				isAdmin = v != 0
-			case string:
-				isAdmin = v == "true"
-			default:
-				isAdmin = false
-			}
-		} else {
-			uid = claims.UserID
-			isAdmin = claims.IsAdmin
-		}
-
-		if uid == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		c.Set("user_id", uid)
-		c.Set("is_admin", isAdmin)
+		c.Set("user_id", claims.UserID)
+		c.Set("is_admin", claims.IsAdmin)
 
 		ctx := c.Request.Context()
-		ctx = context.WithValue(ctx, ContextUserID, uid)
-		ctx = context.WithValue(ctx, ContextIsAdmin, isAdmin)
+		ctx = context.WithValue(ctx, ContextUserID, claims.UserID)
+		ctx = context.WithValue(ctx, ContextIsAdmin, claims.IsAdmin)
 
-		reqLogger := l.With(slog.String("user_id", uid), slog.Bool("is_admin", isAdmin))
+		reqLogger := l.With(slog.String("user_id", claims.UserID), slog.Bool("is_admin", claims.IsAdmin))
 		ctx = logging.WithLogger(ctx, reqLogger)
 
 		c.Request = c.Request.WithContext(ctx)

@@ -1,14 +1,13 @@
 package repository
 
 import (
-
-    "github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PostgresRepo struct {
-    Pool *pgxpool.Pool
+	Pool *pgxpool.Pool
 }
 
 func NewPostgresRepo(pool *pgxpool.Pool) *PostgresRepo {
-    return &PostgresRepo{Pool: pool}
+	return &PostgresRepo{Pool: pool}
 }

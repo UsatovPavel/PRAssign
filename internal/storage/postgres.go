@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/UsatovPavel/PRAssign/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,7 +18,7 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, err
 	}
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, config.HTTPClientTimeoutMedium)
 	defer cancel()
 	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()
@@ -26,7 +27,12 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func WaitForDB(ctx context.Context, databaseURL string, retries int, delay time.Duration) (*pgxpool.Pool, error) {
+func WaitForDB(
+	ctx context.Context,
+	databaseURL string,
+	retries int,
+	delay time.Duration,
+) (*pgxpool.Pool, error) {
 	var lastErr error
 	for i := 0; i < retries; i++ {
 		pool, err := NewPool(ctx, databaseURL)

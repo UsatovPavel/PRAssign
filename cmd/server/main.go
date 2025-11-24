@@ -11,6 +11,7 @@ import (
 	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
 	"github.com/UsatovPavel/PRAssign/internal/api/team"
 	"github.com/UsatovPavel/PRAssign/internal/api/users"
+	"github.com/UsatovPavel/PRAssign/internal/config"
 	"github.com/UsatovPavel/PRAssign/internal/middleware"
 	"github.com/UsatovPavel/PRAssign/internal/repository"
 	"github.com/UsatovPavel/PRAssign/internal/service"
@@ -22,13 +23,13 @@ func main() {
 
 	if err := viper.BindEnv("AUTH_KEY"); err != nil {
 		l.Error("viper bind env failed", "err", err)
-		os.Exit(1)
+		os.Exit(config.ExitCodeConfigError)
 	}
 
 	db, err := storage.NewPostgres()
 	if err != nil {
 		l.Error("db connection error", "err", err)
-		os.Exit(1)
+		os.Exit(config.ExitCodeConfigError)
 	}
 
 	userRepo := repository.NewUserRepository(db)
@@ -51,6 +52,6 @@ func main() {
 
 	if err := router.Run(":8080"); err != nil {
 		l.Error("server stopped", "err", err)
-		os.Exit(1)
+		os.Exit(config.ExitCodeConfigError)
 	}
 }
