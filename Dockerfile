@@ -13,7 +13,7 @@ FROM golang:1.23-bullseye AS builder-hc
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN --mount=type=ssh  go mod download
+RUN go mod download
 COPY . .
 
 ARG SKIP_LINT=false
