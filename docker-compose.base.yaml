@@ -1,0 +1,103 @@
+services:
+  kafka1:
+    image: apache/kafka:latest
+    environment:
+      - CLUSTER_ID=5L6g3nShT-eMCtK--X86sw
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=1
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=false
+    ports:
+      - "29092:9092"
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+
+  kafka2:
+    image: apache/kafka:latest
+    environment:
+      - CLUSTER_ID=5L6g3nShT-eMCtK--X86sw
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=2
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=false
+    ports:
+      - "29093:9092"
+    volumes:
+      - kafka2_data:/var/lib/kafka/data
+
+  kafka3:
+    image: apache/kafka:latest
+    environment:
+      - CLUSTER_ID=5L6g3nShT-eMCtK--X86sw
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_NODE_ID=3
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=false
+    ports:
+      - "29094:9092"
+    volumes:
+      - kafka3_data:/var/lib/kafka/data
+
+  kafka-init:
+    image: apache/kafka:latest
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    volumes:
+      - ./kafka-init.sh:/kafka-init.sh:ro
+    entrypoint: ["bash", "/kafka-init.sh"]
+    restart: "no"
+
+x-factorial-env: &factorial_env
+  FACTORIAL_KAFKA_BOOTSTRAP: kafka1:9092,kafka2:9092,kafka3:9092
+  FACTORIAL_KAFKA_TOPIC_TASKS: factorial.tasks
+
+x-app-env: &app_env
+  <<: *factorial_env
+
+x-db-env: &db_env
+  POSTGRES_USER: pr-assignment
+  POSTGRES_PASSWORD: pr-assignment
+
+x-db: &db_base
+  image: postgres:15
+  environment: *db_env
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pr-assignment} -d ${POSTGRES_DB:-pr-assignment}"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+x-app: &app_base
+  build:
+    context: .
+  environment: *app_env
+
+volumes:
+  kafka1_data:
+  kafka2_data:
+  kafka3_data:
+
+networks:
+  default:
+    name: prassign_default
+

@@ -1,19 +1,27 @@
+# syntax=docker/dockerfile:1.5
+
 # Stage 1 — build
 FROM golang:1.23-bullseye AS builder
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN  go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
 
 # Stage 2 — build healthcheck binary
 FROM golang:1.23-bullseye AS builder-hc
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 COPY . .
 
 ARG SKIP_LINT=false
@@ -25,13 +33,17 @@ RUN if [ "${SKIP_LINT}" != "true" ]; then \
       echo "SKIP_LINT=true — skipping golangci-lint install"; \
     fi
 
-RUN if [ "${SKIP_LINT}" != "true" ]; then \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    if [ "${SKIP_LINT}" != "true" ]; then \
       golangci-lint run --config .golangci.yml ./...; \
     else \
       echo "SKIP_LINT=true — skipping golangci-lint run"; \
     fi
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /healthcheck ./cmd/healthcheck
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /healthcheck ./cmd/healthcheck
 
 # Stage 3 — runtime
 FROM gcr.io/distroless/static-debian11

@@ -1,12 +1,58 @@
 .PHONY: test-int
 app:
-	docker compose down
-	docker compose  build  --build-arg SKIP_LINT=true
-	docker compose up
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml down
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml build --build-arg SKIP_LINT=true
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml up
 
 test-int:
-	docker compose -f docker-compose-test.yaml up --build 
-	docker compose -f docker-compose-test.yaml down -v
+	@set -e; \
+	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d --build db_test migrate_test app_test; \
+	echo "waiting for app_test to become healthy..."; \
+	for i in $$(seq 1 60); do \
+		if docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; \
+	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml run --rm --no-deps tests; \
+	status=$$?; \
+	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml down -v; \
+	exit $$status
+
+#висит, waiting for app_test (localhost:18080/health)... не рабочая
+test-kafka:
+	@set -e; \
+	# Start 3-broker Kafka (with host ports 29092/29093/29094) + init topics; \
+	docker compose -f docker-compose.base.yaml up -d kafka1 kafka2 kafka3; \
+	docker compose -f docker-compose.base.yaml run --rm kafka-init; \
+	# Start app_test stack so HTTP integration tests can reach localhost:18080; \
+	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d db_test migrate_test app_test; \
+	echo "waiting for app_test (localhost:18080/health)..."; \
+	for i in $$(seq 1 60); do \
+		if curl -sf http://localhost:18080/health >/dev/null 2>&1; then break; fi; \
+		sleep 1; \
+	done; \
+	API_BASE_URL="http://localhost:18080" \
+	AUTH_KEY="test-secret" \
+	FACTORIAL_KAFKA_BOOTSTRAP="localhost:29092,localhost:29093,localhost:29094" \
+	FACTORIAL_KAFKA_TOPIC_TASKS="factorial.tasks" \
+	go test ./tests/integration/...; \
+	status=$$?; \
+	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml down -v; \
+	docker compose -f docker-compose.base.yaml down -v; \
+	exit $$status
+
+test-kafka-smoke:
+	@set -e; \
+	docker compose -f docker-compose.base.yaml up -d kafka1 kafka2 kafka3; \
+	docker compose -f docker-compose.base.yaml run --rm kafka-init; \
+	FACTORIAL_KAFKA_BOOTSTRAP="localhost:29092,localhost:29093,localhost:29094" \
+	FACTORIAL_KAFKA_TOPIC_TASKS="factorial.tasks" \
+	go test ./tests/integration -run TestFactorialKafkaSmoke -v; \
+	status=$$?; \
+	docker compose -f docker-compose.base.yaml down -v; \
+	exit $$status
 
 lint:
 	golangci-lint run --config .golangci.yml ./... 
@@ -24,3 +70,24 @@ test-load:
 logs-test-load:
 	docker logs -f prassign-k6-1 > out.txt
 #docker compose run --rm k6 run /tests/test-create-pr.js
+
+
+PORTS := 5432 8080 9092 18080 29092 29093 29094
+
+check-ports:
+	@echo "Проверка портов: $(PORTS)"
+	@blocked=0; \
+	for port in $(PORTS); do \
+		if lsof -iTCP:$$port -sTCP:LISTEN -t >/dev/null ; then \
+			echo "ALERT Порт $$port занят"; \
+			blocked=1; \
+		else \
+			echo " Порт $$port свободен"; \
+		fi; \
+	done; \
+	if [ $$blocked -eq 1 ]; then \
+		echo "Некоторые порты заняты, запуск может упасть"; \
+		exit 1; \
+	else \
+		echo "Все порты свободны, можно запускать проект"; \
+	fi

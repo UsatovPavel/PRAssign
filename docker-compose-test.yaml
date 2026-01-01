@@ -1,19 +1,37 @@
+x-factorial-env: &factorial_env
+  FACTORIAL_KAFKA_BOOTSTRAP: kafka1:9092,kafka2:9092,kafka3:9092
+  FACTORIAL_KAFKA_TOPIC_TASKS: factorial.tasks
+
+x-app-env: &app_env
+  <<: *factorial_env
+
+x-db-env: &db_env
+  POSTGRES_USER: pr-assignment
+  POSTGRES_PASSWORD: pr-assignment
+
+x-db: &db_base
+  image: postgres:15
+  environment: *db_env
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pr-assignment} -d ${POSTGRES_DB:-pr-assignment}"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+x-app: &app_base
+  build:
+    context: .
+  environment: *app_env
+
 services:
   db_test:
-    image: postgres:15
+    <<: *db_base
     container_name: pr-assignment-db-test
     environment:
+      <<: *db_env
       POSTGRES_DB: pr-assignment-test
-      POSTGRES_USER: pr-assignment
-      POSTGRES_PASSWORD: pr-assignment
     ports:
       - "55432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pr-assignment -d pr-assignment-test"]
-      interval: 3s
-      timeout: 5s
-      start_period: 10s
-      retries: 10
     volumes:
       - pr_assignment_test_data:/var/lib/postgresql/data
     restart: "no"
@@ -35,10 +53,10 @@ services:
     restart: "no"
 
   app_test:
-    build:
-      context: .
+    <<: *app_base
     container_name: pr-assignment-service-test
     environment:
+      <<: *app_env
       DATABASE_URL: postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable
       AUTH_KEY: test-secret
     ports:
@@ -46,6 +64,14 @@ services:
     depends_on:
       migrate_test:
         condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      kafka1:
+        condition: service_started
+      kafka2:
+        condition: service_started
+      kafka3:
+        condition: service_started
     healthcheck:
       test: ["CMD", "/healthcheck"]
       interval: 3s
@@ -63,6 +89,7 @@ services:
       app_test:
         condition: service_healthy
     environment:
+      <<: *app_env
       API_BASE_URL: http://app_test:8080
       DATABASE_URL: postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable
       AUTH_KEY: test-secret
