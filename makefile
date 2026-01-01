@@ -1,4 +1,4 @@
-.PHONY: test-int
+.PHONY: test-int test-e2e
 app:
 	docker compose -f docker-compose.base.yaml -f docker-compose.yaml down
 	docker compose -f docker-compose.base.yaml -f docker-compose.yaml build --build-arg SKIP_LINT=true
@@ -21,6 +21,11 @@ test-int:
 		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml down -v; \
 		exit $$status; \
 	} > test.log 2>&1
+
+test-e2e:
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:$${SERVER_PORT}} \
+		go test ./tests/end-to-end/...
 
 # НЕ ИСПОЛЬЗОВАТЬ: старые/нестабильные попытки поднять kafka+тесты из make.
 # Оставлены как напоминание, чтобы не писать нерабочие конфиги.
