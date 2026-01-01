@@ -3,3 +3,6 @@ out.txt
 test-integration-report.log
 test-report.log
 dump.txt
+*.log
+Archive
+.env

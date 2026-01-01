@@ -23,3 +23,10 @@ type PullRequestRepository interface {
 	ListByReviewer(ctx context.Context, userID string) ([]models.PullRequest, error)
 	ListAll(ctx context.Context) ([]models.PullRequest, error)
 }
+
+type FactorialRepository interface {
+	EnsureJob(ctx context.Context, jobID string, total int) error
+	UpsertResult(ctx context.Context, row FactorialResultRow) error
+	GetJob(ctx context.Context, jobID string) (totalItems int, err error)
+	ListByJob(ctx context.Context, jobID string) ([]FactorialResultRow, error)
+}

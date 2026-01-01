@@ -42,6 +42,3 @@ func LoadFactorialKafkaConfig() (FactorialKafkaConfig, error) {
 		TopicTasks: topic,
 	}, nil
 }
-
-
-

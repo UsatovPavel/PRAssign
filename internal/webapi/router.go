@@ -57,6 +57,7 @@ func InitRouter(h *Handlers, l *slog.Logger) *gin.Engine {
 	factorialGroup.Use(middleware.AuthRequired(l))
 	{
 		factorialGroup.POST("", h.Factorial.Enqueue)
+		factorialGroup.GET("/:job_id/result", h.Factorial.GetResult)
 	}
 
 	statsGroup := r.Group("/statistics")

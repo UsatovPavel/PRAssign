@@ -59,6 +59,9 @@ services:
       <<: *app_env
       DATABASE_URL: postgres://pr-assignment:pr-assignment@db:5432/pr-assignment?sslmode=disable
       AUTH_KEY: ${AUTH_KEY}
+      FACTORIAL_KAFKA_TOPIC_RESULTS: ${FACTORIAL_KAFKA_TOPIC_RESULTS:-factorial.results}
+      FACTORIAL_KAFKA_GROUP_RESULTS: ${FACTORIAL_KAFKA_GROUP_RESULTS:-factorial-results-consumer}
+      FACTORIAL_RESULTS_CONSUMER_ENABLED: ${FACTORIAL_RESULTS_CONSUMER_ENABLED:-1}
     ports:
       - "${SERVER_PORT}:8080"
     depends_on:

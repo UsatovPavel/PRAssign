@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
@@ -37,6 +38,7 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	teamRepo := repository.NewTeamRepository(db)
 	prRepo := repository.NewPullRequestRepository(db)
+	factorialRepo := repository.NewFactorialRepo(db.Pool)
 
 	userService := service.NewUserService(userRepo, prRepo, l)
 	teamService := service.NewTeamService(teamRepo, l)
@@ -57,13 +59,15 @@ func main() {
 	}
 	defer factSvc.Close()
 
+	startResultsConsumer(factorialRepo, l)
+
 	handlers := &webapi.Handlers{
 		Team:       team.NewHandler(teamService, l),
 		Users:      users.NewHandler(userService, l),
 		PR:         pullrequest.NewHandler(prService, l),
 		Health:     health.NewHandler(l),
 		Statistics: statistics.NewHandler(prService, l),
-		Factorial:  factorial.NewHandler(factSvc),
+		Factorial:  factorial.NewHandler(factSvc, factorialRepo),
 	}
 
 	router := webapi.InitRouter(handlers, l)
@@ -73,4 +77,31 @@ func main() {
 		l.Error("server stopped", "err", err)
 		os.Exit(config.ExitCodeConfigError)
 	}
+}
+
+func startResultsConsumer(factorialRepo repository.FactorialRepository, l *slog.Logger) {
+	// Start factorial results consumer if enabled (default: on).
+	if os.Getenv("FACTORIAL_RESULTS_CONSUMER_ENABLED") == "0" {
+		return
+	}
+	resCfg, err := config.LoadFactorialResultsKafkaConfig()
+	if err != nil {
+		l.Error("factorial results kafka config", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+	consumer := service.NewFactorialResultConsumer(
+		factorialRepo,
+		service.FactorialResultConsumerConfig{
+			Bootstrap: resCfg.Bootstrap,
+			Group:     resCfg.Group,
+			Topic:     resCfg.Topic,
+		},
+		l,
+	)
+	go func() {
+		if err := consumer.Run(context.Background()); err != nil {
+			l.Error("factorial result consumer stopped", "err", err)
+			os.Exit(config.ExitCodeConfigError)
+		}
+	}()
 }
