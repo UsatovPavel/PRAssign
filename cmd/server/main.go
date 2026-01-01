@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/UsatovPavel/PRAssign/internal/api"
+	"github.com/UsatovPavel/PRAssign/internal/api/factorial"
 	"github.com/UsatovPavel/PRAssign/internal/api/health"
 	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
 	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
@@ -41,12 +42,28 @@ func main() {
 	teamService := service.NewTeamService(teamRepo, l)
 	prService := service.NewPullRequestService(prRepo, teamRepo, userRepo, l)
 
+	factCfg, err := config.LoadFactorialKafkaConfig()
+	if err != nil {
+		l.Error("factorial kafka config", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+	factSvc, err := service.NewFactorialService(service.FactorialConfig{
+		BootstrapServers: factCfg.Bootstrap,
+		TopicTasks:       factCfg.TopicTasks,
+	}, l)
+	if err != nil {
+		l.Error("factorial kafka producer init failed", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+	defer factSvc.Close()
+
 	handlers := &api.Handlers{
 		Team:       team.NewHandler(teamService, l),
 		Users:      users.NewHandler(userService, l),
 		PR:         pullrequest.NewHandler(prService, l),
 		Health:     health.NewHandler(l),
 		Statistics: statistics.NewHandler(prService, l),
+		Factorial:  factorial.NewHandler(factSvc),
 	}
 
 	router := api.InitRouter(handlers, l)

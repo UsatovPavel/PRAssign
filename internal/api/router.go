@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/UsatovPavel/PRAssign/internal/api/auth"
+	"github.com/UsatovPavel/PRAssign/internal/api/factorial"
 	"github.com/UsatovPavel/PRAssign/internal/api/health"
 	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
 	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
@@ -21,6 +22,7 @@ type Handlers struct {
 	Health     *health.Handler
 	Auth       *auth.Handler
 	Statistics *statistics.Handler
+	Factorial  *factorial.Handler
 }
 
 func InitRouter(h *Handlers, l *slog.Logger) *gin.Engine {
@@ -49,6 +51,12 @@ func InitRouter(h *Handlers, l *slog.Logger) *gin.Engine {
 		prGroup.POST("/create", h.PR.Create)
 		prGroup.POST("/merge", h.PR.Merge)
 		prGroup.POST("/reassign", h.PR.Reassign)
+	}
+
+	factorialGroup := r.Group("/factorial")
+	factorialGroup.Use(middleware.AuthRequired(l))
+	{
+		factorialGroup.POST("", h.Factorial.Enqueue)
 	}
 
 	statsGroup := r.Group("/statistics")
