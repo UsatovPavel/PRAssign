@@ -3,7 +3,6 @@ package integration
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
 	"strings"
 	"testing"
@@ -16,6 +15,8 @@ import (
 )
 
 // Smoke: produce factorial tasks to Kafka and ensure they are readable.
+// Note: warmUpOffsets is kept to stabilize metadata/leader readiness right after
+// topic creation in the test compose stack; plain sleeps were flaky.
 func TestFactorialKafkaSmoke(t *testing.T) {
 	cfg := loadKafkaTestCfg(t)
 	producer := newFactorialProducer(t, cfg.bs, cfg.topic)
@@ -40,8 +41,7 @@ func TestFactorialKafkaSmoke(t *testing.T) {
 		t.Fatalf("partitions: %v", err)
 	}
 	t.Logf("partitions=%v expected_messages=%d", partitions, len(cfg.nums))
-
-	logPartitionOffsets(t, cfg.bs, cfg.topic, partitions)
+	warmUpOffsets(cfg.bs, cfg.topic, partitions, 5, 500*time.Millisecond)
 
 	deadline := time.Now().Add(30 * time.Second)
 	found := consumeJobMessages(t, consumer, cfg.topic, cfg.jobID, partitions, deadline, len(cfg.nums))
@@ -99,9 +99,6 @@ func newFactorialProducer(t *testing.T, bs []string, topic string) *service.Fact
 
 func newSaramaConsumer(t *testing.T, bs []string) sarama.Consumer {
 	t.Helper()
-
-	// Emit sarama internal logs into test output.
-	sarama.Logger = log.New(testLogWriter{t: t}, "sarama ", log.LstdFlags)
 
 	config := sarama.NewConfig()
 	config.Version = sarama.V3_6_0_0
@@ -189,41 +186,22 @@ func consumePartition(
 	}
 }
 
-func logPartitionOffsets(t *testing.T, bs []string, topic string, partitions []int32) {
+// warmUpOffsets fetches earliest/latest offsets a few times to ensure metadata/leader ready.
+func warmUpOffsets(bs []string, topic string, partitions []int32, retries int, delay time.Duration) {
 	clientCfg := sarama.NewConfig()
 	clientCfg.Version = sarama.V3_6_0_0
-	client, err := sarama.NewClient(bs, clientCfg)
-	if err != nil {
-		t.Logf("client init for offsets failed: %v", err)
-		return
-	}
-	defer client.Close()
 
-	for _, p := range partitions {
-		earliest, err := client.GetOffset(topic, p, sarama.OffsetOldest)
-		if err != nil {
-			t.Logf("partition %d: get earliest err: %v", p, err)
-			continue
+	for i := 0; i < retries; i++ {
+		client, err := sarama.NewClient(bs, clientCfg)
+		if err == nil {
+			for _, p := range partitions {
+				_, _ = client.GetOffset(topic, p, sarama.OffsetOldest)
+				_, _ = client.GetOffset(topic, p, sarama.OffsetNewest)
+			}
+			client.Close()
 		}
-		latest, err := client.GetOffset(topic, p, sarama.OffsetNewest)
-		if err != nil {
-			t.Logf("partition %d: get latest err: %v", p, err)
-			continue
-		}
-		t.Logf("partition %d: offsets earliest=%d latest=%d", p, earliest, latest)
+		time.Sleep(delay)
 	}
-}
-
-type testLogWriter struct {
-	t *testing.T
-}
-
-func (w testLogWriter) Write(p []byte) (int, error) {
-	s := strings.TrimSpace(string(p))
-	if s != "" {
-		w.t.Log(s)
-	}
-	return len(p), nil
 }
 
 func handleMessage(

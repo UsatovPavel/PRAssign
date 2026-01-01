@@ -85,10 +85,24 @@ func (s *FactorialService) ProduceTasks(ctx context.Context, req FactorialReques
 			Value: sarama.ByteEncoder(msgBody),
 		}
 
-		if err := s.producer.SendMessages([]*sarama.ProducerMessage{msg}); err != nil {
-			// Sarama may return a ProducerErrors; unwrap to log.
-			s.l.Error("factorial produce failed", "err", err, "job_id", jobID, "item_id", idx)
+		partition, offset, err := s.producer.SendMessage(msg)
+		if err != nil {
+			if s.l != nil {
+				// Sarama may return a ProducerErrors; unwrap to log.
+				s.l.Error("factorial produce failed", "err", err, "job_id", jobID, "item_id", idx)
+			}
 			return FactorialResponse{}, err
+		}
+
+		if s.l != nil {
+			s.l.Info(
+				"factorial produce ok",
+				"topic", s.topicTasks,
+				"job_id", jobID,
+				"item_id", idx,
+				"partition", partition,
+				"offset", offset,
+			)
 		}
 	}
 

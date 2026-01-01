@@ -5,57 +5,31 @@ app:
 	docker compose -f docker-compose.base.yaml -f docker-compose.yaml up
 
 test-int:
-	@set -e; \
-	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d --build db_test migrate_test app_test; \
-	echo "waiting for app_test to become healthy..."; \
-	for i in $$(seq 1 60); do \
-		if docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; then \
-			break; \
-		fi; \
-		sleep 1; \
-	done; \
-	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; \
-	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml run --rm --no-deps tests; \
-	status=$$?; \
-	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml down -v; \
-	exit $$status
+	@{ \
+		set -e; \
+		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d --build db_test migrate_test app_test; \
+		echo "waiting for app_test to become healthy..."; \
+		for i in $$(seq 1 60); do \
+			if docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; then \
+				break; \
+			fi; \
+			sleep 1; \
+		done; \
+		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; \
+		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml run --rm --no-deps tests; \
+		status=$$?; \
+		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml down -v; \
+		exit $$status; \
+	} > test.log 2>&1
 
-#висит, waiting for app_test (localhost:18080/health)... не рабочая
+# НЕ ИСПОЛЬЗОВАТЬ: старые/нестабильные попытки поднять kafka+тесты из make.
+# Оставлены как напоминание, чтобы не писать нерабочие конфиги.
 test-kafka:
-	@set -e; \
-	# Start 3-broker Kafka (with host ports 29092/29093/29094) + init topics; \
-	docker compose -f docker-compose.base.yaml up -d kafka1 kafka2 kafka3; \
-	docker compose -f docker-compose.base.yaml run --rm kafka-init; \
-	# Start app_test stack so HTTP integration tests can reach localhost:18080; \
-	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d db_test migrate_test app_test; \
-	echo "waiting for app_test (localhost:18080/health)..."; \
-	for i in $$(seq 1 60); do \
-		if curl -sf http://localhost:18080/health >/dev/null 2>&1; then break; fi; \
-		sleep 1; \
-	done; \
-	API_BASE_URL="http://localhost:18080" \
-	AUTH_KEY="test-secret" \
-	FACTORIAL_KAFKA_BOOTSTRAP="localhost:29092,localhost:29093,localhost:29094" \
-	FACTORIAL_KAFKA_TOPIC_TASKS="factorial.tasks" \
-	go test ./tests/integration/...; \
-	status=$$?; \
-	docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml down -v; \
-	docker compose -f docker-compose.base.yaml down -v; \
-	exit $$status
-
-test-kafka-smoke:
-	@set -e; \
-	docker compose -f docker-compose.base.yaml up -d kafka1 kafka2 kafka3; \
-	docker compose -f docker-compose.base.yaml run --rm kafka-init; \
-	FACTORIAL_KAFKA_BOOTSTRAP="localhost:29092,localhost:29093,localhost:29094" \
-	FACTORIAL_KAFKA_TOPIC_TASKS="factorial.tasks" \
-	go test ./tests/integration -run TestFactorialKafkaSmoke -v; \
-	status=$$?; \
-	docker compose -f docker-compose.base.yaml down -v; \
-	exit $$status
+	@echo "test-kafka disabled (deprecated/unstable). Use make test-int or docker compose directly." && exit 1
 
 lint:
-	golangci-lint run --config .golangci.yml ./... 
+	golangci-lint run --config .golangci.yml ./cmd/... ./internal/... ./tests/...
+
 test-load:
 	docker rm -f prassign-k6-1 2>/dev/null || true
 	docker network prune -f

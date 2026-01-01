@@ -6,18 +6,18 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/UsatovPavel/PRAssign/internal/api"
-	"github.com/UsatovPavel/PRAssign/internal/api/factorial"
-	"github.com/UsatovPavel/PRAssign/internal/api/health"
-	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
-	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
-	"github.com/UsatovPavel/PRAssign/internal/api/team"
-	"github.com/UsatovPavel/PRAssign/internal/api/users"
 	"github.com/UsatovPavel/PRAssign/internal/config"
 	"github.com/UsatovPavel/PRAssign/internal/middleware"
 	"github.com/UsatovPavel/PRAssign/internal/repository"
 	"github.com/UsatovPavel/PRAssign/internal/service"
 	"github.com/UsatovPavel/PRAssign/internal/storage"
+	"github.com/UsatovPavel/PRAssign/internal/webapi"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/factorial"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/health"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/statistics"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/team"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/users"
 )
 
 func main() {
@@ -57,7 +57,7 @@ func main() {
 	}
 	defer factSvc.Close()
 
-	handlers := &api.Handlers{
+	handlers := &webapi.Handlers{
 		Team:       team.NewHandler(teamService, l),
 		Users:      users.NewHandler(userService, l),
 		PR:         pullrequest.NewHandler(prService, l),
@@ -66,7 +66,7 @@ func main() {
 		Factorial:  factorial.NewHandler(factSvc),
 	}
 
-	router := api.InitRouter(handlers, l)
+	router := webapi.InitRouter(handlers, l)
 	router.Use(middleware.SkipK6Logger(l))
 
 	if err := router.Run(":8080"); err != nil {

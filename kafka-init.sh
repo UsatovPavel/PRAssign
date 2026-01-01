@@ -30,3 +30,4 @@ echo "[kafka-init] creating topics (partitions=${PARTITIONS}, rf=${REPLICATION},
 
 echo "[kafka-init] done"
 
+

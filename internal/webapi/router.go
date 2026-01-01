@@ -1,18 +1,18 @@
-package api
+package webapi
 
 import (
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/UsatovPavel/PRAssign/internal/api/auth"
-	"github.com/UsatovPavel/PRAssign/internal/api/factorial"
-	"github.com/UsatovPavel/PRAssign/internal/api/health"
-	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
-	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
-	"github.com/UsatovPavel/PRAssign/internal/api/team"
-	"github.com/UsatovPavel/PRAssign/internal/api/users"
 	"github.com/UsatovPavel/PRAssign/internal/middleware"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/auth"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/factorial"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/health"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/statistics"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/team"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/users"
 )
 
 type Handlers struct {
