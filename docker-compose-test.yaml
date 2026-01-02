@@ -1,19 +1,42 @@
+x-factorial-env: &factorial_env
+  FACTORIAL_KAFKA_BOOTSTRAP: ${FACTORIAL_KAFKA_BOOTSTRAP}
+  FACTORIAL_KAFKA_TOPIC_TASKS: ${FACTORIAL_KAFKA_TOPIC_TASKS}
+  FACTORIAL_KAFKA_TOPIC_RESULTS: ${FACTORIAL_KAFKA_TOPIC_RESULTS}
+  FACTORIAL_KAFKA_GROUP_RESULTS: ${FACTORIAL_KAFKA_GROUP_RESULTS}
+  FACTORIAL_RESULTS_TTL: ${FACTORIAL_RESULTS_TTL}
+  FACTORIAL_RESULTS_TIMEOUT: ${FACTORIAL_RESULTS_TIMEOUT}
+
+x-app-env: &app_env
+  <<: *factorial_env
+
+x-db-env: &db_env
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB_TEST}
+
+x-db: &db_base
+  image: postgres:15
+  environment: *db_env
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+x-app: &app_base
+  build:
+    context: .
+  environment: *app_env
+
 services:
   db_test:
-    image: postgres:15
+    <<: *db_base
     container_name: pr-assignment-db-test
     environment:
-      POSTGRES_DB: pr-assignment-test
-      POSTGRES_USER: pr-assignment
-      POSTGRES_PASSWORD: pr-assignment
+      <<: *db_env
+      POSTGRES_DB: ${POSTGRES_DB_TEST}
     ports:
       - "55432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pr-assignment -d pr-assignment-test"]
-      interval: 3s
-      timeout: 5s
-      start_period: 10s
-      retries: 10
     volumes:
       - pr_assignment_test_data:/var/lib/postgresql/data
     restart: "no"
@@ -24,7 +47,7 @@ services:
     command:
       [
         "-path", "/migrations",
-        "-database", "postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable",
+        "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_test:5432/${POSTGRES_DB_TEST}?sslmode=disable",
         "up"
       ]
     volumes:
@@ -35,17 +58,25 @@ services:
     restart: "no"
 
   app_test:
-    build:
-      context: .
+    <<: *app_base
     container_name: pr-assignment-service-test
     environment:
-      DATABASE_URL: postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable
-      AUTH_KEY: test-secret
+      <<: *app_env
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_test:5432/${POSTGRES_DB_TEST}?sslmode=disable
+      AUTH_KEY: ${AUTH_KEY}
     ports:
-      - "18080:8080"
+      - "${TEST_SERVER_PORT}:8080"
     depends_on:
       migrate_test:
         condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      kafka1:
+        condition: service_started
+      kafka2:
+        condition: service_started
+      kafka3:
+        condition: service_started
     healthcheck:
       test: ["CMD", "/healthcheck"]
       interval: 3s
@@ -63,9 +94,10 @@ services:
       app_test:
         condition: service_healthy
     environment:
+      <<: *app_env
       API_BASE_URL: http://app_test:8080
       DATABASE_URL: postgres://pr-assignment:pr-assignment@db_test:5432/pr-assignment-test?sslmode=disable
-      AUTH_KEY: test-secret
+      AUTH_KEY: ${AUTH_KEY}
     command: ["sh", "-c", "go test ./tests/integration/... -v -count=1 | tee /app/test-integration-report.log"]
     restart: "no"
 volumes:

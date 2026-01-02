@@ -1,17 +1,18 @@
-package api
+package webapi
 
 import (
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/UsatovPavel/PRAssign/internal/api/auth"
-	"github.com/UsatovPavel/PRAssign/internal/api/health"
-	"github.com/UsatovPavel/PRAssign/internal/api/pullrequest"
-	"github.com/UsatovPavel/PRAssign/internal/api/statistics"
-	"github.com/UsatovPavel/PRAssign/internal/api/team"
-	"github.com/UsatovPavel/PRAssign/internal/api/users"
 	"github.com/UsatovPavel/PRAssign/internal/middleware"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/auth"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/factorial"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/health"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/pullrequest"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/statistics"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/team"
+	"github.com/UsatovPavel/PRAssign/internal/webapi/users"
 )
 
 type Handlers struct {
@@ -21,6 +22,7 @@ type Handlers struct {
 	Health     *health.Handler
 	Auth       *auth.Handler
 	Statistics *statistics.Handler
+	Factorial  *factorial.Handler
 }
 
 func InitRouter(h *Handlers, l *slog.Logger) *gin.Engine {
@@ -49,6 +51,13 @@ func InitRouter(h *Handlers, l *slog.Logger) *gin.Engine {
 		prGroup.POST("/create", h.PR.Create)
 		prGroup.POST("/merge", h.PR.Merge)
 		prGroup.POST("/reassign", h.PR.Reassign)
+	}
+
+	factorialGroup := r.Group("/factorial")
+	factorialGroup.Use(middleware.AuthRequired(l))
+	{
+		factorialGroup.POST("", h.Factorial.Enqueue)
+		factorialGroup.GET("/:job_id/result", h.Factorial.GetResult)
 	}
 
 	statsGroup := r.Group("/statistics")
