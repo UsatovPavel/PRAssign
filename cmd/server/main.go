@@ -67,7 +67,7 @@ func main() {
 		PR:         pullrequest.NewHandler(prService, l),
 		Health:     health.NewHandler(l),
 		Statistics: statistics.NewHandler(prService, l),
-		Factorial:  factorial.NewHandler(factSvc, factorialRepo),
+		Factorial:  factorial.NewHandler(factSvc, factorialRepo, l),
 	}
 
 	router := webapi.InitRouter(handlers, l)

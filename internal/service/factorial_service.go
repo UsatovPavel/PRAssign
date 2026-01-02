@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"strings"
 
 	"github.com/IBM/sarama"
-	"github.com/google/uuid"
 
 	"github.com/UsatovPavel/PRAssign/internal/models"
 )
@@ -60,7 +60,7 @@ type FactorialResponse struct {
 func (s *FactorialService) ProduceTasks(ctx context.Context, req FactorialRequest) (FactorialResponse, error) {
 	jobID := req.JobID
 	if strings.TrimSpace(jobID) == "" {
-		jobID = uuid.NewString()
+		return FactorialResponse{}, errors.New("job_id is required")
 	}
 
 	for idx, n := range req.Nums {

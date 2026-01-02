@@ -3,7 +3,6 @@ package endtoend
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -16,26 +15,25 @@ func TestFactorialEnqueue(t *testing.T) {
 	client := http.Client{Timeout: 10 * time.Second}
 	token := genToken("e2e-user", false)
 
-	jobID, count := enqueueFactorial(t, client, token, 6)
+	jobID := enqueueFactorial(t, client, token, 6)
 	if jobID == "" {
 		t.Fatalf("job_id is empty")
 	}
-	if count != 1 {
-		t.Fatalf("count expected 1, got %d", count)
-	}
 }
 
-func enqueueFactorial(t *testing.T, client http.Client, token string, n int) (jobID string, count int) {
+func enqueueFactorial(t *testing.T, client http.Client, token string, n int) (jobID string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	jobID = strconv.FormatInt(time.Now().UnixNano(), 10)
 	reqBody := []byte(`{"numbers":[` + strconv.Itoa(n) + `]}`)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL()+"/factorial", bytes.NewReader(reqBody))
 	if err != nil {
 		t.Fatalf("new request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Job-Id", jobID)
 	if token != "" {
 		req.Header.Set("token", token)
 	}
@@ -47,16 +45,8 @@ func enqueueFactorial(t *testing.T, client http.Client, token string, n int) (jo
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+	if resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("factorial status = %d, body=%s", resp.StatusCode, string(body))
 	}
-
-	var got struct {
-		JobID string `json:"job_id"`
-		Count int    `json:"count"`
-	}
-	if err := json.Unmarshal(body, &got); err != nil {
-		t.Fatalf("decode resp: %v, body=%s", err, string(body))
-	}
-	return got.JobID, got.Count
+	return jobID
 }

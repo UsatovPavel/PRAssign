@@ -1,7 +1,9 @@
 package factorial
 
 import (
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,19 +14,15 @@ import (
 type Handler struct {
 	svc  *service.FactorialService
 	repo repository.FactorialRepository
+	log  *slog.Logger
 }
 
-func NewHandler(svc *service.FactorialService, repo repository.FactorialRepository) *Handler {
-	return &Handler{svc: svc, repo: repo}
+func NewHandler(svc *service.FactorialService, repo repository.FactorialRepository, log *slog.Logger) *Handler {
+	return &Handler{svc: svc, repo: repo, log: log}
 }
 
 type requestBody struct {
 	Numbers []int `json:"numbers" binding:"required"`
-}
-
-type responseBody struct {
-	JobID string `json:"job_id"`
-	Count int    `json:"count"`
 }
 
 type resultItemResponse struct {
@@ -57,11 +55,18 @@ func (h *Handler) Enqueue(c *gin.Context) {
 		return
 	}
 
-	jobID := c.GetHeader("X-Job-Id")
+	jobID := c.GetHeader("Job-Id")
+	if strings.TrimSpace(jobID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": "header Job-Id required"}})
+		return
+	}
 
 	if err := h.repo.EnsureJob(c.Request.Context(), jobID, len(req.Numbers)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "DB_ERROR", "message": err.Error()}})
 		return
+	}
+	if h.log != nil {
+		h.log.Info("factorial job recorded", "job_id", jobID, "total", len(req.Numbers))
 	}
 
 	resp, err := h.svc.ProduceTasks(c.Request.Context(), service.FactorialRequest{
@@ -73,10 +78,8 @@ func (h *Handler) Enqueue(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusAccepted, responseBody{
-		JobID: resp.JobID,
-		Count: resp.Count,
-	})
+	_ = resp
+	c.Status(http.StatusAccepted)
 }
 
 // GET /factorial/:job_id/result

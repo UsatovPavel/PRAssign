@@ -34,7 +34,7 @@ ON CONFLICT (job_id) DO NOTHING;
 }
 
 func (r *FactorialRepo) UpsertResult(ctx context.Context, row FactorialResultRow) error {
-const q = `
+	const q = `
 INSERT INTO factorial_results (job_id, item_id, input, output, status, error, updated_at)
 VALUES ($1,$2,$3,$4,$5,$6, now())
 ON CONFLICT (job_id, item_id) DO UPDATE
@@ -83,4 +83,3 @@ func (r *FactorialRepo) GetJob(ctx context.Context, jobID string) (int, error) {
 	}
 	return total, nil
 }
-

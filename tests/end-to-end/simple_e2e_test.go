@@ -13,7 +13,7 @@ func TestFactorialEndToEnd(t *testing.T) {
 	client := http.Client{Timeout: 10 * time.Second}
 	token := genToken("e2e-user", false)
 
-	jobID, _ := enqueueFactorial(t, client, token, 6)
+	jobID := enqueueFactorial(t, client, token, 6)
 
 	result := waitForFactorialResult(t, client, token, jobID)
 

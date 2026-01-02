@@ -1,6 +1,8 @@
 x-factorial-env: &factorial_env
   FACTORIAL_KAFKA_BOOTSTRAP: kafka1:9092,kafka2:9092,kafka3:9092
   FACTORIAL_KAFKA_TOPIC_TASKS: factorial.tasks
+  FACTORIAL_KAFKA_TOPIC_RESULTS: factorial.results
+  FACTORIAL_KAFKA_GROUP_RESULTS: factorial-results-consumer
 
 x-app-env: &app_env
   <<: *factorial_env
