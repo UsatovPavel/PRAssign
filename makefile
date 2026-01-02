@@ -1,13 +1,26 @@
-.PHONY: test-int test-e2e
+SHELL := /bin/bash
+.PHONY: all test-int test-e2e resilence
 app:
-	docker compose -f docker-compose.base.yaml -f docker-compose.yaml down
-	docker compose -f docker-compose.base.yaml -f docker-compose.yaml build --build-arg SKIP_LINT=true
-	docker compose -f docker-compose.base.yaml -f docker-compose.yaml up
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml down; \
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml build --build-arg SKIP_LINT=true; \
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml up --scale app=$${APP_REPLICAS} proxy
+#need scala project in neighbour directory
+all:
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml up -d --scale app=$${APP_REPLICAS} proxy; \
+	: > ../go.log; \
+	docker compose -f docker-compose.base.yaml -f docker-compose.yaml logs -f proxy > ../go.log 2>&1 & \
+	sleep 15; \
+	cd ../AsyncFactorial && $(MAKE) service; \
+	: > ../scala.log; \
+	cd ../AsyncFactorial && docker compose logs -f consumer | grep -E "ERROR|WARN|INFO important" > ../scala.log 2>&1 &
+#grep because a large amount of spam
 
 test-int:
 	@{ \
 		set -e; \
-		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d --build db_test migrate_test app_test; \
+		docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up -d --build db_test migrate_test app_test kafka1 kafka2 kafka3 kafka-init; \
 		echo "waiting for app_test to become healthy..."; \
 		for i in $$(seq 1 60); do \
 			if docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml exec -T app_test /healthcheck >/dev/null 2>&1; then \
@@ -28,6 +41,17 @@ test-e2e:
 	API_BASE_URL=$${API_BASE_URL:-http://localhost:$${SERVER_PORT}} \
 		go test ./tests/end-to-end/... -count=1  
 
+
+#samples: make resilence TEST=app_instance_down_api
+#		 make resilence TEST=app_instance_down_factorial
+#		make resilence TEST=broker_down
+resilence:
+	@set -euo pipefail; \
+	if [ -z "$${TEST:-}" ]; then echo "Usage: make resilence TEST=<name>"; exit 1; fi; \
+	script="./tests/resilence/$${TEST}.sh"; \
+	if [ ! -x "$${script}" ]; then echo "Script $${script} not found or not executable"; exit 1; fi; \
+	"$${script}"
+
 # НЕ ИСПОЛЬЗОВАТЬ: старые/нестабильные попытки поднять kafka+тесты из make.
 # Оставлены как напоминание, чтобы не писать нерабочие конфиги.
 test-kafka:
@@ -44,6 +68,8 @@ test-load:
 fmt:
 	gofmt -s -w .
 
+status:
+	 docker compose -f docker-compose.base.yaml -f docker-compose.yaml ps
 
 # rebuild: docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up --build -d app_test
 

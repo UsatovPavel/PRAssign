@@ -28,22 +28,6 @@ func TestFactorialEndToEnd(t *testing.T) {
 	}
 }
 
-func waitForFactorialResult(t *testing.T, client http.Client, token, jobID string) FactorialResult {
-	t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
-
-	for {
-		res := getFactorialResult(t, client, token, jobID)
-		if res.TotalItems > 0 && res.DoneItems+res.FailedItems >= res.TotalItems {
-			return res
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timeout waiting for factorial result")
-		}
-		time.Sleep(300 * time.Millisecond)
-	}
-}
-
 type FactorialResult struct {
 	Status      string `json:"status"`
 	TotalItems  int    `json:"total_items"`
@@ -55,6 +39,26 @@ type FactorialResult struct {
 		Output *string `json:"output"`
 		Error  *string `json:"error"`
 	} `json:"items"`
+}
+
+func waitForFactorialResult(t *testing.T, client http.Client, token, jobID string) FactorialResult {
+	return waitForFactorialResultWithTimeout(t, client, token, jobID, 20*time.Second)
+}
+
+func waitForFactorialResultWithTimeout(t *testing.T, client http.Client, token, jobID string, timeout time.Duration) FactorialResult {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+
+	for {
+		res := getFactorialResult(t, client, token, jobID)
+		if res.TotalItems > 0 && res.DoneItems+res.FailedItems >= res.TotalItems {
+			return res
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timeout waiting for factorial result")
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 }
 
 func getFactorialResult(t *testing.T, client http.Client, token, jobID string) FactorialResult {

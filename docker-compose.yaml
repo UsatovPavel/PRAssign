@@ -59,14 +59,11 @@ services:
 
   app:
     <<: *app_base
-    container_name: pr-assignment-service
     environment:
       <<: *app_env
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       AUTH_KEY: ${AUTH_KEY}
       FACTORIAL_RESULTS_CONSUMER_ENABLED: ${FACTORIAL_RESULTS_CONSUMER_ENABLED}
-    ports:
-      - "${SERVER_PORT}:8080"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -78,6 +75,16 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
+  proxy:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_started
+    ports:
+      - "${SERVER_PORT}:80"
 
   k6:
     image: grafana/k6:0.47.0
