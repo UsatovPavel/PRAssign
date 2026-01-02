@@ -131,6 +131,7 @@ func consumeJobMessages(
 	expected int,
 ) int {
 	found := 0
+	var pcs []sarama.PartitionConsumer
 
 	for _, p := range partitions {
 		pc, err := consumer.ConsumePartition(topic, p, sarama.OffsetOldest)
@@ -138,51 +139,32 @@ func consumeJobMessages(
 			t.Logf("partition %d: consume err: %v", p, err)
 			continue
 		}
-
-		n := consumePartition(t, pc, p, jobID, deadline, expected-found)
-		pc.Close()
-
-		found += n
-		if found >= expected {
-			return found
-		}
+		pcs = append(pcs, pc)
+		defer pc.Close()
 	}
-
-	return found
-}
-
-func consumePartition(
-	t *testing.T,
-	pc sarama.PartitionConsumer,
-	partition int32,
-	jobID string,
-	deadline time.Time,
-	expected int,
-) int {
-	found := 0
 
 	for {
 		if time.Now().After(deadline) {
 			return found
 		}
 
-		select {
-		case msg := <-pc.Messages():
-			if handleMessage(t, msg, partition, jobID) {
-				found++
-				if found >= expected {
-					return found
+		for idx, pc := range pcs {
+			select {
+			case msg := <-pc.Messages():
+				if handleMessage(t, msg, partitions[idx], jobID) {
+					found++
+					if found >= expected {
+						return found
+					}
 				}
+			case err := <-pc.Errors():
+				if err != nil {
+					t.Logf("partition %d: consumer err: %v", partitions[idx], err)
+				}
+			default:
 			}
-
-		case err := <-pc.Errors():
-			if err != nil {
-				t.Logf("partition %d: consumer err: %v", partition, err)
-			}
-
-		default:
-			time.Sleep(50 * time.Millisecond)
 		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

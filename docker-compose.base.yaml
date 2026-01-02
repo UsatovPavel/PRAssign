@@ -68,21 +68,26 @@ services:
     restart: "no"
 
 x-factorial-env: &factorial_env
-  FACTORIAL_KAFKA_BOOTSTRAP: kafka1:9092,kafka2:9092,kafka3:9092
-  FACTORIAL_KAFKA_TOPIC_TASKS: factorial.tasks
+  FACTORIAL_KAFKA_BOOTSTRAP: ${FACTORIAL_KAFKA_BOOTSTRAP}
+  FACTORIAL_KAFKA_TOPIC_TASKS: ${FACTORIAL_KAFKA_TOPIC_TASKS}
+  FACTORIAL_KAFKA_TOPIC_RESULTS: ${FACTORIAL_KAFKA_TOPIC_RESULTS}
+  FACTORIAL_KAFKA_GROUP_RESULTS: ${FACTORIAL_KAFKA_GROUP_RESULTS}
+  FACTORIAL_RESULTS_TTL: ${FACTORIAL_RESULTS_TTL}
+  FACTORIAL_RESULTS_TIMEOUT: ${FACTORIAL_RESULTS_TIMEOUT}
 
 x-app-env: &app_env
   <<: *factorial_env
 
 x-db-env: &db_env
-  POSTGRES_USER: pr-assignment
-  POSTGRES_PASSWORD: pr-assignment
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB}
 
 x-db: &db_base
   image: postgres:15
   environment: *db_env
   healthcheck:
-    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pr-assignment} -d ${POSTGRES_DB:-pr-assignment}"]
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
     interval: 5s
     timeout: 3s
     retries: 10
@@ -90,7 +95,10 @@ x-db: &db_base
 x-app: &app_base
   build:
     context: .
-  environment: *app_env
+  environment:
+    <<: *app_env
+    SERVER_PORT: ${SERVER_PORT}
+    AUTH_KEY: ${AUTH_KEY}
 
 volumes:
   kafka1_data:

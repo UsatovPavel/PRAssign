@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -60,6 +61,7 @@ func main() {
 	defer factSvc.Close()
 
 	startResultsConsumer(factorialRepo, l)
+	startRetentionCleaner(factorialRepo, l)
 
 	handlers := &webapi.Handlers{
 		Team:       team.NewHandler(teamService, l),
@@ -102,6 +104,26 @@ func startResultsConsumer(factorialRepo repository.FactorialRepository, l *slog.
 		if err := consumer.Run(context.Background()); err != nil {
 			l.Error("factorial result consumer stopped", "err", err)
 			os.Exit(config.ExitCodeConfigError)
+		}
+	}()
+}
+
+func startRetentionCleaner(factorialRepo repository.FactorialRepository, l *slog.Logger) {
+	ttlCfg, err := config.LoadFactorialRetentionConfig()
+	if err != nil {
+		l.Error("factorial retention config", "err", err)
+		os.Exit(config.ExitCodeConfigError)
+	}
+	interval := time.Duration(ttlCfg.TTLSeconds) * time.Second
+	timeout := time.Duration(ttlCfg.TimeoutSec) * time.Second
+	ticker := time.NewTicker(interval)
+	go func() {
+		for range ticker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			if err := factorialRepo.DeleteOlderThan(ctx, interval); err != nil && l != nil {
+				l.Error("factorial retention delete failed", "err", err)
+			}
+			cancel()
 		}
 	}()
 }

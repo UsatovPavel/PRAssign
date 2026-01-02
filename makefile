@@ -22,10 +22,11 @@ test-int:
 		exit $$status; \
 	} > test.log 2>&1
 
+# без кэширования
 test-e2e:
 	@set -a; [ -f .env ] && . ./.env; set +a; \
 	API_BASE_URL=$${API_BASE_URL:-http://localhost:$${SERVER_PORT}} \
-		go test ./tests/end-to-end/...
+		go test ./tests/end-to-end/... -count=1  
 
 # НЕ ИСПОЛЬЗОВАТЬ: старые/нестабильные попытки поднять kafka+тесты из make.
 # Оставлены как напоминание, чтобы не писать нерабочие конфиги.
@@ -39,6 +40,12 @@ test-load:
 	docker rm -f prassign-k6-1 2>/dev/null || true
 	docker network prune -f
 	docker compose up -d --no-deps k6
+
+fmt:
+	gofmt -s -w .
+
+
+# rebuild: docker compose -f docker-compose.base.yaml -f docker-compose-test.yaml up --build -d app_test
 
 # docker compose down -v --remove-orphans
 # 	docker compose build --build-arg SKIP_LINT=true k6

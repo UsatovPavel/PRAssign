@@ -4,12 +4,18 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 )
 
 type FactorialResultsKafkaConfig struct {
 	Bootstrap []string
 	Topic     string
 	Group     string
+}
+
+type FactorialRetentionConfig struct {
+	TTLSeconds int64
+	TimeoutSec int64
 }
 
 // Env:
@@ -47,5 +53,24 @@ func LoadFactorialResultsKafkaConfig() (FactorialResultsKafkaConfig, error) {
 		Bootstrap: out,
 		Topic:     topic,
 		Group:     group,
+	}, nil
+}
+
+// FACTORIAL_RESULTS_TTL (duration, e.g. "1h") controls retention delete.
+func LoadFactorialRetentionConfig() (FactorialRetentionConfig, error) {
+	ttlRaw := strings.TrimSpace(os.Getenv("FACTORIAL_RESULTS_TTL"))
+	d, err := time.ParseDuration(ttlRaw)
+	if err != nil {
+		return FactorialRetentionConfig{}, err
+	}
+	timeoutRaw := strings.TrimSpace(os.Getenv("FACTORIAL_RESULTS_TIMEOUT"))
+	tout, err := time.ParseDuration(timeoutRaw)
+	if err != nil {
+		return FactorialRetentionConfig{}, err
+	}
+
+	return FactorialRetentionConfig{
+		TTLSeconds: int64(d.Seconds()),
+		TimeoutSec: int64(tout.Seconds()),
 	}, nil
 }

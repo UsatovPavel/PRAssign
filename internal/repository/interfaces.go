@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/UsatovPavel/PRAssign/internal/models"
 )
@@ -29,4 +30,5 @@ type FactorialRepository interface {
 	UpsertResult(ctx context.Context, row FactorialResultRow) error
 	GetJob(ctx context.Context, jobID string) (totalItems int, err error)
 	ListByJob(ctx context.Context, jobID string) ([]FactorialResultRow, error)
+	DeleteOlderThan(ctx context.Context, olderThan time.Duration) error
 }

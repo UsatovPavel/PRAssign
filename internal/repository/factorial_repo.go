@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -82,4 +83,13 @@ func (r *FactorialRepo) GetJob(ctx context.Context, jobID string) (int, error) {
 		return 0, err
 	}
 	return total, nil
+}
+
+func (r *FactorialRepo) DeleteOlderThan(ctx context.Context, olderThan time.Duration) error {
+	const q = `
+DELETE FROM factorial_results
+WHERE updated_at < NOW() - ($1 * INTERVAL '1 second');
+`
+	_, err := r.Pool.Exec(ctx, q, olderThan.Seconds())
+	return err
 }
